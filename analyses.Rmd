@@ -1,0 +1,1030 @@
+---
+title: "Age Specific Mortality Rate Trends "
+output: html_notebook
+---
+
+# Intro
+
+Countries of interest:
+
+* Japan
+* UK
+* USA
+* France
+* Canada
+
+Analyses
+
+* e0 for all countries (implied?)
+* Mx for age 0, 40, 80, 90
+    * Correlation between trends and log-trends
+* Mx at all ages 
+    * Correlation as heatmap
+    * Separated into two periods: 
+        * 1975-1990
+        * After 1990 (to last common available year?)
+
+
+# Prereqs 
+
+```{r}
+pacman::p_load(
+  tidyverse, ggrepel, here,
+  corrr, knitr, kableExtra
+)
+
+dta_e0 <- read_rds(here("data", "e0.rds"      ))
+dta_Mx <- read_rds(here("data", "Mx.rds"      ))
+
+source(here("scripts", "country_definitions.R"))
+
+
+```
+
+# e0
+
+```{r}
+dta_e0 %>% 
+  left_join(country_labels) %>% 
+  filter(label %in% c("USA", "Canada", "United Kingdom", "Japan", "France")) %>% 
+  rename(Country = label) %>% 
+  filter(year >= 1975) %>% 
+  filter(sex != "total") %>% 
+  ggplot(aes(x = year, y = e0, group = Country, colour = Country, linetype = Country)) + 
+  geom_line() + 
+  facet_wrap(~sex) +
+  labs(
+    x = "Year", y = "Life expectancy at birth",
+    title = "Life expectancy at birth for selected countries",
+    caption = "Source: Human Mortality Database"
+  ) + 
+  theme_minimal() 
+
+ggsave(here("figures", "00_e0.png"), height = 15, width = 20, units = "cm", dpi = 300)
+ggsave(here("figures", "00_e0.svg"), height = 15, width = 20, units = "cm", dpi = 300)
+
+```
+
+Annual change in life expectancy 
+
+```{r}
+dta_e0 %>% 
+  left_join(country_labels) %>% 
+  filter(label %in% c("USA", "Canada", "United Kingdom", "Japan", "France")) %>% 
+  rename(Country = label) %>% 
+  group_by(Country, sex) %>% 
+  arrange(year) %>% 
+  mutate(ch_e0 = e0 - lag(e0)) %>% 
+  ungroup() %>% 
+  filter(year >= 1975) %>% 
+  filter(sex != "total") %>% 
+  ggplot(aes(x = year, y = ch_e0)) + 
+  geom_point() + stat_smooth() + 
+  facet_grid(Country~sex) +
+  labs(
+    x = "Year", y = "Change in Life expectancy at birth",
+    title = "Annual changes in Life expectancy at birth for selected countries",
+    subtitle = "Lines show smoothed trend",
+    caption = "Source: Human Mortality Database"
+  ) +
+  geom_hline(yintercept = 0) +
+  theme_minimal() 
+
+ggsave(here("figures", "01_ch_e0.png"), height = 20, width = 15, units = "cm", dpi = 300)
+ggsave(here("figures", "01_ch_e0.svg"), height = 20, width = 15, units = "cm", dpi = 300)
+
+
+```
+
+
+
+# Mx at specific ages 
+
+```{r}
+dta_Mx %>% 
+  left_join(country_labels) %>% 
+  filter(label %in% c("USA", "Canada", "United Kingdom", "Japan", "France")) %>% 
+  rename(Country = label) %>% 
+  filter(age %in% c(0, 40, 80, 90)) %>% 
+  filter(year >= 1975) %>% 
+  filter(sex != "total") %>% 
+  ggplot(aes(x = year, y =  Mx, group = Country, colour = Country, linetype = Country)) +
+  geom_line() +
+  facet_grid(age ~ sex, scales = "free_y") +
+  scale_y_log10() +
+  theme_minimal() + 
+  labs(
+    x = "Year", y = "Probability of death in next 12 months (log scale)",
+    title = "Probability of dying in next 12 months by age in years",
+    caption = "Source: Human Mortality Database"
+  )
+
+ggsave(here("figures", "02_Mx_selected.png"), height = 20, width = 18, units = "cm", dpi = 300)
+ggsave(here("figures", "02_Mx_selected.svg"), height = 20, width = 18, units = "cm", dpi = 300)
+
+
+
+```
+
+Correlation between log improvement rates by country 
+
+```{r}
+corrstretch <- function(x){
+  x %>% correlate() %>% stretch()
+}
+
+mx_corrs <- 
+  dta_Mx %>% 
+    left_join(country_labels) %>% 
+    filter(label %in% c("USA", "Canada", "United Kingdom", "Japan", "France")) %>% 
+    rename(Country = label) %>% 
+    filter(age %in% c(0, 40, 80, 90)) %>% 
+    filter(year >= 1975) %>% 
+    filter(sex != "total") %>% 
+    mutate(lnmx = log(Mx)) %>%
+    select(-Mx) %>% 
+    select(Country, sex, age, year, lnmx) %>% 
+    spread(age, lnmx) %>% 
+    select(-year) %>% 
+    group_by(sex, Country) %>% 
+    nest() %>% 
+    mutate(correlations = map(data, corrstretch)) %>% 
+    select(Country, sex, correlations) %>% 
+    unnest(correlations) 
+
+mx_corrs  
+```
+
+Rearrange for table 
+
+```{r}
+corrs_female <- 
+  mx_corrs %>%
+    mutate(r = round(r, 3)) %>% 
+    spread(y, r) %>% 
+  filter(sex == "female") %>%  
+  ungroup() %>% select(-sex) %>% 
+  set_names(nm = c("Country", "age", "f_0", "f_40", "f_80", "f_90"))
+
+corrs_male <- 
+  mx_corrs %>%
+    mutate(r = round(r, 3)) %>% 
+    spread(y, r) %>% 
+  filter(sex == "male") %>%  
+  ungroup() %>% select(-sex) %>% 
+  set_names(nm = c("Country", "age", "m_0", "m_40", "m_80", "m_90"))
+
+corrs_wide <- full_join(corrs_female, corrs_male, by = c("Country", "age"))
+corrs_wide
+```
+
+Now to display as a nice table 
+
+```{r}
+options(knitr.kable.NA = '')
+
+corrs_wide %>% 
+  kable(col.names = c("Country", "Age", "0", "40", "80", "90", "0", "40", "80", "90")) %>% 
+  kable_styling(c("bordered")) %>% 
+  add_header_above(c(" " = 2, "Female" = 4, "Male" = 4)) %>% 
+  collapse_rows(columns = 1)
+  
+```
+
+
+Now the same but split by period (1975-1990; 1991-last year)
+
+
+```{r}
+mx_corrs_1975_1990 <- 
+  dta_Mx %>% 
+    left_join(country_labels) %>% 
+    filter(label %in% c("USA", "Canada", "United Kingdom", "Japan", "France")) %>% 
+    rename(Country = label) %>% 
+    filter(age %in% c(0, 40, 80, 90)) %>% 
+    filter(between(year, 1975, 1990)) %>% 
+    filter(sex != "total") %>% 
+    mutate(lnmx = log(Mx)) %>%
+    select(-Mx) %>% 
+    select(Country, sex, age, year, lnmx) %>% 
+    spread(age, lnmx) %>% 
+    select(-year) %>% 
+    group_by(sex, Country) %>% 
+    nest() %>% 
+    mutate(correlations = map(data, corrstretch)) %>% 
+    select(Country, sex, correlations) %>% 
+    unnest(correlations) 
+
+mx_corrs_1975_1990  
+
+```
+
+```{r}
+corrs_female_1975_1990 <- 
+  mx_corrs_1975_1990 %>%
+    mutate(r = round(r, 3)) %>% 
+    spread(y, r) %>% 
+  filter(sex == "female") %>%  
+  ungroup() %>% select(-sex) %>% 
+  set_names(nm = c("Country", "age", "f_0", "f_40", "f_80", "f_90"))
+
+corrs_male_1975_1990 <- 
+  mx_corrs_1975_1990 %>%
+    mutate(r = round(r, 3)) %>% 
+    spread(y, r) %>% 
+  filter(sex == "male") %>%  
+  ungroup() %>% select(-sex) %>% 
+  set_names(nm = c("Country", "age", "m_0", "m_40", "m_80", "m_90"))
+
+corrs_wide_1975_1990 <- full_join(corrs_female_1975_1990, corrs_male_1975_1990, by = c("Country", "age"))
+corrs_wide_1975_1990
+```
+
+
+
+Now to display as a nice table 
+
+```{r}
+options(knitr.kable.NA = '')
+
+corrs_wide_1975_1990 %>% 
+  kable(col.names = c("Country", "Age", "0", "40", "80", "90", "0", "40", "80", "90")) %>% 
+  kable_styling(c("bordered")) %>% 
+  add_header_above(c(" " = 2, "Female" = 4, "Male" = 4)) %>% 
+  collapse_rows(columns = 1)
+
+```
+
+
+And for the latter period 
+
+
+```{r}
+mx_corrs_1991_last <- 
+  dta_Mx %>% 
+    left_join(country_labels) %>% 
+    filter(label %in% c("USA", "Canada", "United Kingdom", "Japan", "France")) %>% 
+    rename(Country = label) %>% 
+    filter(age %in% c(0, 40, 80, 90)) %>% 
+    filter(year >= 1991) %>% 
+    filter(sex != "total") %>% 
+    mutate(lnmx = log(Mx)) %>%
+    select(-Mx) %>% 
+    select(Country, sex, age, year, lnmx) %>% 
+    spread(age, lnmx) %>% 
+    select(-year) %>% 
+    group_by(sex, Country) %>% 
+    nest() %>% 
+    mutate(correlations = map(data, corrstretch)) %>% 
+    select(Country, sex, correlations) %>% 
+    unnest(correlations) 
+
+mx_corrs_1991_last
+
+```
+
+```{r}
+corrs_female_1991_last <- 
+  mx_corrs_1991_last %>%
+    mutate(r = round(r, 3)) %>% 
+    spread(y, r) %>% 
+  filter(sex == "female") %>%  
+  ungroup() %>% select(-sex) %>% 
+  set_names(nm = c("Country", "age", "f_0", "f_40", "f_80", "f_90"))
+
+corrs_male_1991_last <- 
+  mx_corrs_1991_last %>%
+    mutate(r = round(r, 3)) %>% 
+    spread(y, r) %>% 
+  filter(sex == "male") %>%  
+  ungroup() %>% select(-sex) %>% 
+  set_names(nm = c("Country", "age", "m_0", "m_40", "m_80", "m_90"))
+
+corrs_wide_1991_last <- full_join(corrs_female_1991_last, corrs_male_1991_last, by = c("Country", "age"))
+corrs_wide_1991_last
+```
+
+
+
+Now to display as a nice table 
+
+```{r}
+options(knitr.kable.NA = '')
+
+corrs_wide_1991_last %>% 
+  kable(col.names = c("Country", "Age", "0", "40", "80", "90", "0", "40", "80", "90")) %>% 
+  kable_styling(c("bordered")) %>% 
+  add_header_above(c(" " = 2, "Female" = 4, "Male" = 4)) %>% 
+  collapse_rows(columns = 1)
+
+```
+
+
+
+# Mx for all ages (heatmap)
+
+
+
+
+```{r}
+dta_trnd <- dta_Mx %>% 
+  filter(sex != "total") %>%
+    left_join(country_labels) %>% 
+    filter(label %in% c("USA", "Canada", "United Kingdom", "Japan", "France")) %>% 
+    rename(Country = label) %>% 
+  filter(year >= 1975)  %>% 
+  filter(age <= 109) %>% 
+  group_by(Country, sex, year, age) %>% 
+  summarise(mean_Mx = mean(Mx, na.rm = T)) %>% 
+  ungroup() %>% 
+  mutate(log_mean_Mx = log(mean_Mx, 10)) %>% 
+  group_by(sex, Country) %>% 
+  nest()
+
+
+cors_df <- dta_trnd %>% 
+  mutate(cors = map(
+    data, 
+    function(X) {
+      X %>% 
+        select(-mean_Mx) %>% 
+        spread(age, log_mean_Mx) %>% 
+        select(-year) %>% 
+        cor()
+      }
+    )
+  ) %>% 
+  mutate(cor_df = map(
+    cors,
+    function(X){
+      X %>% 
+        as_tibble() %>% 
+        mutate(from_age = rownames(X)) %>% 
+        gather(key = "to_age", value = "value", -from_age) %>% 
+        mutate(from_age = as.numeric(from_age), to_age = as.numeric(to_age))
+      }
+    )
+  ) %>% 
+  select(sex, Country, cor_df) %>% 
+  unnest()
+
+
+cors_df %>% 
+  filter(from_age <= 100, to_age <= 100) %>% 
+  rename(r = value) %>% 
+  ggplot(aes(x = from_age, y = to_age, fill = r)) + 
+  geom_tile() +
+  scale_fill_distiller(palette = "RdBu", limits = c(-1,1), direction = 1) +
+  scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+  scale_y_continuous(breaks = seq(0, 100, by = 10)) +
+  coord_equal() + 
+  facet_grid(Country ~ sex) +
+  labs(x = "", y = "",
+       title = "Correlation between % improvement\ntrends at specific ages on x and y axes")
+
+ggsave(here("figures", "heatmap_allyears.png"), width = 18, height = 35, units = "cm", dpi = 300)
+ggsave(here("figures", "heatmap_allyears.svg"), width = 18, height = 35, units = "cm", dpi = 300)
+
+
+```
+
+Now the same for first 1975-1990, then 1991-last year 
+
+```{r}
+dta_trnd <- dta_Mx %>% 
+  filter(sex != "total") %>%
+    left_join(country_labels) %>% 
+    filter(label %in% c("USA", "Canada", "United Kingdom", "Japan", "France")) %>% 
+    rename(Country = label) %>% 
+  filter(between(year, 1975, 1990))  %>% 
+  filter(age <= 109) %>% 
+  group_by(Country, sex, year, age) %>% 
+  summarise(mean_Mx = mean(Mx, na.rm = T)) %>% 
+  ungroup() %>% 
+  mutate(log_mean_Mx = log(mean_Mx, 10)) %>% 
+  group_by(sex, Country) %>% 
+  nest()
+
+
+cors_df <- dta_trnd %>% 
+  mutate(cors = map(
+    data, 
+    function(X) {
+      X %>% 
+        select(-mean_Mx) %>% 
+        spread(age, log_mean_Mx) %>% 
+        select(-year) %>% 
+        cor()
+      }
+    )
+  ) %>% 
+  mutate(cor_df = map(
+    cors,
+    function(X){
+      X %>% 
+        as_tibble() %>% 
+        mutate(from_age = rownames(X)) %>% 
+        gather(key = "to_age", value = "value", -from_age) %>% 
+        mutate(from_age = as.numeric(from_age), to_age = as.numeric(to_age))
+      }
+    )
+  ) %>% 
+  select(sex, Country, cor_df) %>% 
+  unnest()
+
+
+cors_df %>% 
+  filter(from_age <= 100, to_age <= 100) %>% 
+  rename(r = value) %>% 
+  ggplot(aes(x = from_age, y = to_age, fill = r)) + 
+  geom_tile() +
+  scale_fill_distiller(palette = "RdBu", limits = c(-1,1), direction = 1) +
+  scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+  scale_y_continuous(breaks = seq(0, 100, by = 10)) +
+  coord_equal() + 
+  facet_grid(Country ~ sex) +
+  labs(x = "", y = "",
+       title = "Correlation between % improvement\ntrends at specific ages on x and y axes",
+       subtitle = "1975-1990")
+
+ggsave(here("figures", "heatmap_1975_1990.png"), width = 18, height = 35, units = "cm", dpi = 300)
+ggsave(here("figures", "heatmap_1975_1990.svg"), width = 18, height = 35, units = "cm", dpi = 300)
+
+
+```
+
+
+And now 1991 to last available year 
+
+```{r}
+dta_trnd <- dta_Mx %>% 
+  filter(sex != "total") %>%
+    left_join(country_labels) %>% 
+    filter(label %in% c("USA", "Canada", "United Kingdom", "Japan", "France")) %>% 
+    rename(Country = label) %>% 
+  filter(year >= 1991)  %>% 
+  filter(age <= 109) %>% 
+  group_by(Country, sex, year, age) %>% 
+  summarise(mean_Mx = mean(Mx, na.rm = T)) %>% 
+  ungroup() %>% 
+  mutate(log_mean_Mx = log(mean_Mx, 10)) %>% 
+  group_by(sex, Country) %>% 
+  nest()
+
+
+cors_df <- dta_trnd %>% 
+  mutate(cors = map(
+    data, 
+    function(X) {
+      X %>% 
+        select(-mean_Mx) %>% 
+        spread(age, log_mean_Mx) %>% 
+        select(-year) %>% 
+        cor()
+      }
+    )
+  ) %>% 
+  mutate(cor_df = map(
+    cors,
+    function(X){
+      X %>% 
+        as_tibble() %>% 
+        mutate(from_age = rownames(X)) %>% 
+        gather(key = "to_age", value = "value", -from_age) %>% 
+        mutate(from_age = as.numeric(from_age), to_age = as.numeric(to_age))
+      }
+    )
+  ) %>% 
+  select(sex, Country, cor_df) %>% 
+  unnest()
+
+
+cors_df %>% 
+  filter(from_age <= 100, to_age <= 100) %>% 
+  rename(r = value) %>% 
+  ggplot(aes(x = from_age, y = to_age, fill = r)) + 
+  geom_tile() +
+  scale_fill_distiller(palette = "RdBu", limits = c(-1,1), direction = 1) +
+  scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+  scale_y_continuous(breaks = seq(0, 100, by = 10)) +
+  coord_equal() + 
+  facet_grid(Country ~ sex) +
+  labs(x = "", y = "",
+       title = "Correlation between % improvement\ntrends at specific ages on x and y axes",
+       subtitle = "1991 onwards")
+
+ggsave(here("figures", "heatmap_1991_last.png"), width = 18, height = 35, units = "cm", dpi = 300)
+ggsave(here("figures", "heatmap_1991_last.svg"), width = 18, height = 35, units = "cm", dpi = 300)
+
+
+```
+
+
+Let's do this just for the UK nations 
+
+```{r}
+dta_trnd <- dta_Mx %>% 
+  filter(sex != "total") %>%
+  filter(code %in% c("GBRTENW", "GBR_SCO", "GBR_NIR")) %>% 
+  filter(between(year, 1955, 2016))  %>% 
+  filter(age <= 109) %>% 
+  group_by(code, sex, year, age) %>% 
+  summarise(mean_Mx = mean(Mx, na.rm = T)) %>% 
+  ungroup() %>% 
+  mutate(log_mean_Mx = log(mean_Mx + 0.00001, 10)) %>% # Correction for Sweden
+  group_by(sex, code) %>% 
+  nest()
+
+
+cors_df <- dta_trnd %>% 
+  mutate(cors = map(
+    data, 
+    function(X) {
+      X %>% 
+        select(-mean_Mx) %>% 
+        spread(age, log_mean_Mx) %>% 
+        select(-year) %>% 
+        cor()
+      }
+    )
+  ) %>% 
+  mutate(cor_df = map(
+    cors,
+    function(X){
+      X %>% 
+        as_tibble() %>% 
+        mutate(from_age = rownames(X)) %>% 
+        gather(key = "to_age", value = "value", -from_age) %>% 
+        mutate(from_age = as.numeric(from_age), to_age = as.numeric(to_age))
+      }
+    )
+  ) %>% 
+  select(sex, code, cor_df) %>% 
+  unnest()
+
+
+cors_df %>% 
+  filter(from_age <= 100, to_age <= 100) %>% 
+  ggplot(aes(x = from_age, y = to_age, fill = value)) + 
+  geom_tile() +
+  scale_fill_viridis_c(limits = c(-1,1)) +
+  scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+  scale_y_continuous(breaks = seq(0, 100, by = 10)) +
+  coord_equal() + 
+  facet_grid(sex ~code) + 
+  labs(x = "Age", y = "Age", title = "Correlations between rates of change in log mortality risk age different ages",
+       subtitle = "Trends from 1955-2016. England & Wales, Scotland, Northern Ireland",
+       caption = "Source: Human Mortality Database. Available from https://github.com/JonMinton/Life_expectancy_limits/")
+
+ggsave("figures/trend_correlation_heatmap.png", height = 20, width = 25, units = "cm", dpi = 300)
+
+
+```
+
+
+Although plotly doesn't convert faceting too easily, can I use ggplotly for hovering over values for Scotland males alone?
+
+```{r}
+p <- cors_df %>% 
+  filter(from_age <= 100, to_age <= 100) %>% 
+  filter(sex == "male") %>% 
+  filter(code == "GBR_SCO") %>% 
+  ggplot(aes(x = from_age, y = to_age, fill = value)) + 
+  geom_tile() + 
+  scale_fill_viridis_c() + 
+  scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+  scale_y_continuous(breaks = seq(0, 100, by = 10)) + 
+  coord_equal() 
+
+p <- cors_df %>% 
+  filter(from_age <= 100, to_age <= 100) %>% 
+  ggplot(aes(x = from_age, y = to_age, fill = value)) + 
+  geom_tile() +
+  scale_fill_viridis_c() +
+  scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+  scale_y_continuous(breaks = seq(0, 100, by = 10)) +
+  coord_equal() + 
+  facet_grid(sex ~code)
+
+plotly::ggplotly(p)
+
+```
+
+ggplotly now works with faceted plots! (Though the number of observations looks like it causes things to struggle!)
+
+For Scotland and England & Wales (independently), how have the correlations changed over time? 
+
+England/Wales first: 
+
+```{r}
+dta_trnd <- dta_Mx %>% 
+  filter(sex != "total") %>%
+  filter(code %in% c("GBRTENW")) %>% 
+  filter(between(year, 1950, 2010))  %>%
+  filter(age <= 109) %>% 
+  mutate(
+    decade = cut(year, breaks = seq(1950, 2010, by = 10), labels = c("1950s", "1960s", "1970s", "1980s", "1990s", "2000s"), include.lowest = TRUE)
+  ) %>% 
+  group_by(sex, decade, year, age) %>% 
+  summarise(mean_Mx = mean(Mx, na.rm = T)) %>% 
+  ungroup() %>% 
+  mutate(log_mean_Mx = log(mean_Mx, 10)) %>% # Correction for Sweden
+  group_by(sex, decade) %>% 
+  nest()
+
+
+cors_df <- dta_trnd %>% 
+  mutate(cors = map(
+    data, 
+    function(X) {
+      X %>% 
+        select(-mean_Mx) %>% 
+        spread(age, log_mean_Mx) %>% 
+        select(-year) %>% 
+        cor()
+      }
+    )
+  ) %>% 
+  mutate(cor_df = map(
+    cors,
+    function(X){
+      X %>% 
+        as_tibble() %>% 
+        mutate(from_age = rownames(X)) %>% 
+        gather(key = "to_age", value = "value", -from_age) %>% 
+        mutate(from_age = as.numeric(from_age), to_age = as.numeric(to_age))
+      }
+    )
+  ) %>% 
+  select(sex, decade, cor_df) %>% 
+  unnest()
+
+
+cors_df %>% 
+  filter(from_age <= 100, to_age <= 100) %>% 
+  ggplot(aes(x = from_age, y = to_age, fill = value)) + 
+  geom_tile() +
+  scale_fill_viridis_c() +
+  scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+  scale_y_continuous(breaks = seq(0, 100, by = 10)) +
+  coord_equal() + 
+  facet_grid(sex ~ decade)
+
+```
+
+
+
+Now for Scotland. 
+
+```{r}
+dta_trnd <- dta_Mx %>% 
+  filter(sex != "total") %>%
+  filter(code %in% c("GBR_SCO")) %>% 
+  filter(between(year, 1950, 2010))  %>%
+  filter(age <= 109) %>% 
+  mutate(
+    decade = cut(year, breaks = seq(1950, 2010, by = 10), labels = c("1950s", "1960s", "1970s", "1980s", "1990s", "2000s"), include.lowest = TRUE)
+  ) %>% 
+  group_by(sex, decade, year, age) %>% 
+  summarise(mean_Mx = mean(Mx, na.rm = T)) %>% 
+  ungroup() %>% 
+  mutate(log_mean_Mx = log(mean_Mx + 0.00001, 10)) %>% # Correction for Sweden
+  group_by(sex, decade) %>% 
+  nest()
+
+
+cors_df <- dta_trnd %>% 
+  mutate(cors = map(
+    data, 
+    function(X) {
+      X %>% 
+        select(-mean_Mx) %>% 
+        spread(age, log_mean_Mx) %>% 
+        select(-year) %>% 
+        cor()
+      }
+    )
+  ) %>% 
+  mutate(cor_df = map(
+    cors,
+    function(X){
+      X %>% 
+        as_tibble() %>% 
+        mutate(from_age = rownames(X)) %>% 
+        gather(key = "to_age", value = "value", -from_age) %>% 
+        mutate(from_age = as.numeric(from_age), to_age = as.numeric(to_age))
+      }
+    )
+  ) %>% 
+  select(sex, decade, cor_df) %>% 
+  unnest()
+
+
+cors_df %>% 
+  filter(from_age <= 100, to_age <= 100) %>% 
+  ggplot(aes(x = from_age, y = to_age, fill = value)) + 
+  geom_tile() +
+  scale_fill_viridis_c() +
+  scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+  scale_y_continuous(breaks = seq(0, 100, by = 10)) +
+  coord_equal() + 
+  facet_grid(sex ~ decade)
+
+```
+Northern Ireland
+
+
+```{r}
+dta_trnd <- dta_Mx %>% 
+  filter(sex != "total") %>%
+  filter(code %in% c("GBR_NIR")) %>% 
+  filter(between(year, 1950, 2010))  %>%
+  filter(age <= 109) %>% 
+  mutate(
+    decade = cut(year, breaks = seq(1950, 2010, by = 10), labels = c("1950s", "1960s", "1970s", "1980s", "1990s", "2000s"), include.lowest = TRUE)
+  ) %>% 
+  group_by(sex, decade, year, age) %>% 
+  summarise(mean_Mx = mean(Mx, na.rm = T)) %>% 
+  ungroup() %>% 
+  mutate(log_mean_Mx = log(mean_Mx + 0.00001, 10)) %>% # Correction for Sweden
+  group_by(sex, decade) %>% 
+  nest()
+
+
+cors_df <- dta_trnd %>% 
+  mutate(cors = map(
+    data, 
+    function(X) {
+      X %>% 
+        select(-mean_Mx) %>% 
+        spread(age, log_mean_Mx) %>% 
+        select(-year) %>% 
+        cor()
+      }
+    )
+  ) %>% 
+  mutate(cor_df = map(
+    cors,
+    function(X){
+      X %>% 
+        as_tibble() %>% 
+        mutate(from_age = rownames(X)) %>% 
+        gather(key = "to_age", value = "value", -from_age) %>% 
+        mutate(from_age = as.numeric(from_age), to_age = as.numeric(to_age))
+      }
+    )
+  ) %>% 
+  select(sex, decade, cor_df) %>% 
+  unnest()
+
+
+cors_df %>% 
+  filter(from_age <= 100, to_age <= 100) %>% 
+  ggplot(aes(x = from_age, y = to_age, fill = value)) + 
+  geom_tile() +
+  scale_fill_viridis_c() +
+  scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+  scale_y_continuous(breaks = seq(0, 100, by = 10)) +
+  coord_equal() + 
+  facet_grid(sex ~ decade)
+
+```
+
+```{r}
+dta_trnd <- dta_Mx %>% 
+  filter(sex != "total") %>%
+  filter(code %in% c("GBRTENW")) %>% 
+  filter(between(year, 1955, 2015))  %>%
+  filter(age <= 109) %>% 
+  mutate(
+    decade = cut(year, breaks = seq(1955, 2015, by = 10), include.lowest = TRUE)
+  ) %>% 
+  group_by(sex, decade, year, age) %>% 
+  summarise(mean_Mx = mean(Mx, na.rm = T)) %>% 
+  ungroup() %>% 
+  mutate(log_mean_Mx = log(mean_Mx, 10)) %>% # Correction for Sweden
+  group_by(sex, decade) %>% 
+  nest()
+
+
+cors_df <- dta_trnd %>% 
+  mutate(cors = map(
+    data, 
+    function(X) {
+      X %>% 
+        select(-mean_Mx) %>% 
+        spread(age, log_mean_Mx) %>% 
+        select(-year) %>% 
+        cor()
+      }
+    )
+  ) %>% 
+  mutate(cor_df = map(
+    cors,
+    function(X){
+      X %>% 
+        as_tibble() %>% 
+        mutate(from_age = rownames(X)) %>% 
+        gather(key = "to_age", value = "value", -from_age) %>% 
+        mutate(from_age = as.numeric(from_age), to_age = as.numeric(to_age))
+      }
+    )
+  ) %>% 
+  select(sex, decade, cor_df) %>% 
+  unnest()
+
+
+cors_df %>% 
+  filter(from_age <= 100, to_age <= 100) %>% 
+  ggplot(aes(x = from_age, y = to_age, fill = value)) + 
+  geom_tile() +
+  scale_fill_viridis_c() +
+  scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+  scale_y_continuous(breaks = seq(0, 100, by = 10)) +
+  coord_equal() + 
+  facet_grid(sex ~ decade) +
+  labs(
+    x = "Age", y = "Age",
+    title = "Correlation between trends at indivdual ages, England & Wales, by decade"
+  )
+
+```
+
+
+
+Now for Scotland. 
+
+```{r}
+dta_trnd <- dta_Mx %>% 
+  filter(sex != "total") %>%
+  filter(code %in% c("GBR_SCO")) %>% 
+  filter(between(year, 1955, 2015))  %>%
+  filter(age <= 109) %>% 
+  mutate(
+    decade = cut(year, breaks = seq(1955, 2015, by = 10), include.lowest = TRUE)
+  ) %>% 
+  group_by(sex, decade, year, age) %>% 
+  summarise(mean_Mx = mean(Mx, na.rm = T)) %>% 
+  ungroup() %>% 
+  mutate(log_mean_Mx = log(mean_Mx + 0.00001, 10)) %>% # Correction for Sweden
+  group_by(sex, decade) %>% 
+  nest()
+
+
+cors_df <- dta_trnd %>% 
+  mutate(cors = map(
+    data, 
+    function(X) {
+      X %>% 
+        select(-mean_Mx) %>% 
+        spread(age, log_mean_Mx) %>% 
+        select(-year) %>% 
+        cor()
+      }
+    )
+  ) %>% 
+  mutate(cor_df = map(
+    cors,
+    function(X){
+      X %>% 
+        as_tibble() %>% 
+        mutate(from_age = rownames(X)) %>% 
+        gather(key = "to_age", value = "value", -from_age) %>% 
+        mutate(from_age = as.numeric(from_age), to_age = as.numeric(to_age))
+      }
+    )
+  ) %>% 
+  select(sex, decade, cor_df) %>% 
+  unnest()
+
+
+cors_df %>% 
+  filter(from_age <= 100, to_age <= 100) %>% 
+  ggplot(aes(x = from_age, y = to_age, fill = value)) + 
+  geom_tile() +
+  scale_fill_viridis_c() +
+  scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+  scale_y_continuous(breaks = seq(0, 100, by = 10)) +
+  coord_equal() + 
+  facet_grid(sex ~ decade)
+
+```
+
+## Analysis/results for aqmen conference presentation
+
+Populations:
+
+* France, 
+* UK
+* USA
+* Japan
+
+Time period:
+
+* 1970 to last available year
+
+Analyses:
+
+* Individual plots
+* Correlations between broad age groups 
+* Dendrogram of age correlations 
+
+
+```{r}
+
+dta_Mx %>% 
+  filter(code %in% c("FRATNP", "GBR_NP", "USA", "JPN")) %>% 
+  filter(year >= 1970) %>% 
+  filter(age <= 109) %>% 
+  filter(sex != "total") %>% 
+  group_by(code, sex) %>% 
+  nest() 
+
+
+```
+
+
+Let's look at hclust examples 
+
+It seems from this that the datastructure required should have the following:
+
+* rownames: the individual ages
+* columns: rate in different years 
+
+Let's start with a single population: USA males
+
+```{r}
+dta_Mx %>% 
+  filter(code == "USA") %>% 
+  filter(sex == "male") %>% 
+  filter(year >= 1970) %>%
+  filter(age <= 109) %>% 
+  mutate(lnMx = log(Mx + 0.00001, 10)) %>% 
+  select(-code, -sex, -Mx) %>% 
+  spread(year, lnMx) -> tmp
+
+nms <- tmp$age
+tmp$age <- NULL
+rownames(tmp) <- nms
+tmp
+
+hc <- hclust(dist(tmp), "ave")
+
+ggdendro::ggdendrogram(hc, rotate = TRUE, leaf_labels = TRUE) + coord_flip()
+
+
+
+```
+
+
+This has been a bit too much of a drain on my cognitive resources for now. I'm going to stop and reevaluate when I've got more focus. It does seem to identify two broad clusters, and for these clusters to be as expected, split between working age and retiremnt age, with age 0 with post retirement age. 
+
+Let's quickly try PCA on the same
+
+```{r}
+pc <- prcomp(tmp, scale = TRUE, center = TRUE)
+
+pc_df <- tibble(age = rownames(pc$x), pc1 = pc$x[,1], pc2 = pc$x[,2], pc3 = pc$x[,3])
+
+ggplot(pc_df, aes(x = pc1, y = pc2, label = age)) + 
+  geom_text()
+
+ggplot(pc_df, aes(x = pc2, y = pc3, label = age)) + 
+  geom_text()
+
+
+```
+
+```{r}
+
+dta_Mx %>% 
+  filter(code == "USA") %>% 
+  filter(sex == "female") %>% 
+  filter(year >= 1970) %>%
+  filter(age <= 109) %>% 
+  mutate(lnMx = log(Mx + 0.00001, 10)) %>% 
+  select(-code, -sex, -Mx) %>% 
+  spread(year, lnMx) -> tmp2
+
+nms <- tmp2$age
+tmp2$age <- NULL
+rownames(tmp2) <- nms
+tmp2
+
+hc2 <- hclust(dist(tmp2), "ave")
+
+ggdendro::ggdendrogram(hc2, rotate = TRUE, leaf_labels = TRUE) + coord_flip()
+
+
+pc2 <- prcomp(tmp2, scale = TRUE, center = TRUE)
+
+pc2_df <- pc2$x[,1:3] %>% as.tibble() %>% mutate(age = rownames(pc2$x))
+
+ggplot(pc2_df, aes(x = PC1, y = PC2, label = age)) + 
+  geom_text()
+
+ggplot(pc2_df, aes(x = PC2, y = PC3, label = age)) + 
+  geom_text()
+
+
+```

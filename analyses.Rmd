@@ -127,6 +127,65 @@ ggsave(here("figures", "02_Mx_selected.svg"), height = 20, width = 18, units = "
 
 
 ```
+And swapping the groupings/facets 
+
+```{r}
+dta_Mx %>% 
+  left_join(country_labels) %>% 
+  filter(label %in% c("USA", "Canada", "United Kingdom", "Japan", "France")) %>% 
+  rename(Country = label) %>% 
+  filter(age %in% c(0, 40, 80, 90)) %>% 
+  filter(year >= 1975) %>% 
+  filter(sex != "total") %>% 
+  ggplot(aes(x = year, y =  Mx, group = age, colour = as.factor(age), linetype = as.factor(age))) +
+  geom_line() +
+  facet_grid(Country ~ sex) +
+  scale_y_log10() +
+  theme_minimal() + 
+  labs(
+    x = "Year", y = "Probability of death in next 12 months (log scale)",
+    title = "Probability of dying in next 12 months by age in years",
+    caption = "Source: Human Mortality Database"
+  )
+
+ggsave(here("figures", "02a_Mx_selected.png"), height = 20, width = 18, units = "cm", dpi = 300)
+ggsave(here("figures", "02a_Mx_selected.svg"), height = 20, width = 18, units = "cm", dpi = 300)
+
+
+
+```
+
+And indexed 
+
+```{r}
+dta_Mx %>% 
+  left_join(country_labels) %>% 
+  filter(label %in% c("USA", "Canada", "United Kingdom", "Japan", "France")) %>% 
+  rename(Country = label) %>% 
+  filter(age %in% c(0, 40, 80, 90)) %>% 
+  filter(year >= 1975) %>% 
+  filter(sex != "total") %>%
+  group_by(Country, sex, age) %>% 
+  mutate(indexed_Mx = 100 * Mx / Mx[year == 1975]) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = year, y =  indexed_Mx, group = age, colour = as.factor(age), linetype = as.factor(age))) +
+  geom_line() +
+  facet_grid(Country ~ sex) +
+  theme_minimal() + 
+  labs(
+    x = "Year", y = "Trends in probability of dying in next 12 months",
+    title = "Age specifc mortality compared with 1975 (1975 = 100)",
+    caption = "Source: Human Mortality Database"
+  )
+
+ggsave(here("figures", "02b_Mx_selected.png"), height = 20, width = 18, units = "cm", dpi = 300)
+ggsave(here("figures", "02b_Mx_selected.svg"), height = 20, width = 18, units = "cm", dpi = 300)
+
+
+
+```
+
+
 
 Correlation between log improvement rates by country 
 
@@ -581,7 +640,7 @@ all_corrblocks <-
 
 Now to figure out how to write two of these in a neat way , before moving to others 
 
-```{r}
+```{r, eval = FALSE}
 all_corrblocks %>% 
   slice(1:2)
 
@@ -614,11 +673,11 @@ Now for all blocks
 
 ```{r}
 add_format_worksheet <- function(wb, label, corr_data){
-  wb %>% addWorksheet(sheetName = label)
+  wb %>% addWorksheet(sheetName = label, zoom = 25)
   wb %>% writeData(sheet = label, x = corr_data, rowNames = TRUE)
   wb %>% setColWidths(sheet = label, cols = 1:ncol(corr_data), widths = 3)
   wb %>% setRowHeights(sheet = label, rows = 1:(nrow(corr_data)), heights = 20)
-  wb %>% conditionalFormatting(sheet = label, cols = 1:ncol(corr_data), rows = 1:(nrow(block_01)),
+  wb %>% conditionalFormatting(sheet = label, cols = 1:ncol(corr_data), rows = 1:(nrow(corr_data)),
                              type = "colorscale", style = c("red", "white", "blue"), rule = c(-1, 0, 1))
   
   NULL

@@ -43,6 +43,18 @@ source(here("scripts", "country_definitions.R"))
 
 ```
 
+
+Write-to-table function 
+
+```{r}
+write_to_table <- function(x, location){
+  x %>% write_csv(location)
+  x
+}
+
+```
+
+
 # e0
 
 ```{r}
@@ -444,7 +456,7 @@ cors_df %>%
        title = "Correlation between % improvement\ntrends at specific ages on x and y axes")
 
 ggsave(here("figures", "heatmap_allyears.png"), width = 18, height = 35, units = "cm", dpi = 300)
-ggsave(here("figures", "heatmap_allyears.svg"), width = 18, height = 35, units = "cm", dpi = 300)
+# ggsave(here("figures", "heatmap_allyears.svg"), width = 18, height = 35, units = "cm", dpi = 300)
 
 
 ```
@@ -511,7 +523,7 @@ cors_df %>%
        subtitle = "1975-1990")
 
 ggsave(here("figures", "heatmap_1975_1990.png"), width = 18, height = 35, units = "cm", dpi = 300)
-ggsave(here("figures", "heatmap_1975_1990.svg"), width = 18, height = 35, units = "cm", dpi = 300)
+# ggsave(here("figures", "heatmap_1975_1990.svg"), width = 18, height = 35, units = "cm", dpi = 300)
 
 
 ```
@@ -577,7 +589,7 @@ cors_df %>%
        subtitle = "1991 onwards")
 
 ggsave(here("figures", "heatmap_1991_last.png"), width = 18, height = 35, units = "cm", dpi = 300)
-ggsave(here("figures", "heatmap_1991_last.svg"), width = 18, height = 35, units = "cm", dpi = 300)
+# ggsave(here("figures", "heatmap_1991_last.svg"), width = 18, height = 35, units = "cm", dpi = 300)
 
 
 ```
@@ -596,6 +608,79 @@ cors_df %>%
 
 
 ```
+
+Let's first produce a workbook with just the two periods visualised above 
+
+```{r}
+calc_and_grab_corrs <- function(DTA, this_country, this_sex, start_period, end_period, continuity_correction = 0){
+  selected_data <- 
+    DTA %>% 
+      filter(sex == this_sex) %>% 
+      filter(Country == this_country) %>% 
+      filter(between(year, start_period, end_period)) %>% 
+      filter(age <= 109) %>% 
+      mutate(log_Mx = log(Mx + continuity_correction, 10)) %>% 
+      select(year, age, log_Mx)  
+    
+  selected_data %>%
+    spread(age, log_Mx) %>%
+    select(-year) %>%
+    cor()
+}
+
+
+
+dta_Mx_labelled_filtered <- 
+  dta_Mx %>% 
+  left_join(country_labels) %>% 
+  select(Country = label, sex, year, age, Mx)
+
+all_corrblocks <- 
+  crossing(
+    Country = c("France", "Japan", "United Kingdom", "USA", "Canada"),
+    sex = c("female", "male"),
+    start_period = c(1975, 1991),
+    end_period = c(1990, 2019)
+  ) %>% 
+  filter(magrittr::or(
+    start_period == 1975 & end_period %in% c(1990, 2019),
+    start_period == 1991 & end_period == 2019    
+    )
+  ) %>% 
+    mutate(corr_data = pmap(
+      .l = list(this_country = Country, this_sex = sex, start_period = start_period, end_period = end_period), 
+      .f = calc_and_grab_corrs, 
+      DTA = dta_Mx_labelled_filtered
+      )
+    )
+
+
+```
+
+Write out these blocks
+
+```{r}
+add_format_worksheet <- function(wb, label, corr_data){
+  wb %>% addWorksheet(sheetName = label, zoom = 25)
+  wb %>% writeData(sheet = label, x = corr_data, rowNames = TRUE)
+  wb %>% setColWidths(sheet = label, cols = 1:ncol(corr_data), widths = 3)
+  wb %>% setRowHeights(sheet = label, rows = 1:(nrow(corr_data)), heights = 20)
+  wb %>% conditionalFormatting(sheet = label, cols = 1:ncol(corr_data), rows = 1:(nrow(corr_data)),
+                             type = "colorscale", style = c("red", "white", "blue"), rule = c(-1, 0, 1))
+  
+  NULL
+}
+
+wb <- openxlsx::createWorkbook()
+
+all_corrblocks %>% 
+  mutate(label = str_c(str_extract(Country, "^.{2}"), str_extract(sex, "^.{2}"), start_period, end_period, sep = "_")) %>% 
+  mutate(tmp = walk2(label, corr_data, add_format_worksheet, wb = wb))
+
+saveWorkbook(wb, file = here("tables", "blocks_both_main_periods.xlsx"), overwrite = TRUE)
+
+```
+
 
 Let's take a rolling series of 25 year periods, each five years apart, starting from 1950.
 
@@ -625,7 +710,7 @@ dta_Mx_labelled_filtered <-
 
 all_corrblocks <- 
   crossing(
-    Country = c("France", "Japan", "United Kingdom", "USA", "United Kingdom"),
+    Country = c("France", "Japan", "United Kingdom", "USA", "Canada"),
     sex = c("female", "male"),
     start_period = seq(1950, 1995, by = 5)
   ) %>% 
@@ -690,5 +775,191 @@ all_corrblocks %>%
   mutate(tmp = walk2(label, corr_data, add_format_worksheet, wb = wb))
 
 saveWorkbook(wb, file = here("tables", "many_blocks.xlsx"), overwrite = TRUE)
+
+```
+
+# Linearity of trends 
+
+A complementary analysis to that produced above is to investigate how (log)linear the trends have been at different ages. It's expected that trends in infancy will be largely (log)linear, along with those in retirement ages, whereas trends in working age will be least (log)linear, i.e. those age groups with the weakest correlations and strongest negative correlations with those at the majority of ages will also be those with where the (log)linearity of the trends is smallest. 
+
+```{r}
+get_rsq <- function(DTA, start_year, end_year){
+
+  DTA %>% 
+    filter(between(year, start_year, end_year)) %>% 
+    mutate(logMx = log(Mx, 10)) %>% 
+    lm(logMx ~ year, data = .) %>% 
+    broom::glance() %>% 
+    pull("r.squared")
+}
+
+all_rsq <- 
+  dta_Mx_labelled_filtered %>% 
+  filter(Country %in% c("France", "Japan", "United Kingdom", "USA", "Canada")) %>% 
+    group_by(Country, sex, age) %>% 
+    nest() %>% 
+    crossing(
+      start_year = c(1975, 1991),
+      end_year   = c(1990, 2018)
+    ) %>% 
+    filter(!(end_year < start_year)) %>% 
+    mutate(rsq = pmap_dbl(
+      .l = list(DTA = data, start_year = start_year, end_year = end_year),
+      .f = possibly(get_rsq, otherwise = NA_real_)
+    ))
+
+all_rsq
+
+```
+
+
+Now to visualise 
+
+```{r}
+all_rsq %>% 
+  mutate(
+    period = case_when(
+      start_year == 1975 & end_year == 2018   ~ "1975 onwards",
+      start_year == 1975 & end_year == 1990   ~ "1975-1990",
+      start_year == 1991 & end_year == 2018   ~ "1991 onwards",
+      TRUE                                    ~ NA_character_
+    ) %>% factor(., levels = c("1975 onwards", "1975-1990", "1991 onwards"), ordered =TRUE)
+  ) %>% 
+  write_to_table(here("tables", "linearity_rsq.csv")) %>% 
+  filter(sex != "total") %>% 
+  ggplot(aes(x = age, y = rsq, group = period, linetype = period, colour = period)) + 
+  geom_line() + 
+  facet_grid(Country ~ sex) + 
+  labs(
+    x = "Age in years", 
+    y = "Log-linearity (R-squared)",
+    title = "Linearity in log mortality improvement rates"
+  ) + 
+  theme_minimal() +
+  scale_colour_manual(values = c("black", "darkred", "darkblue")) +
+  scale_linetype_manual(values = c("dashed", "dotdash", "solid"))
+
+ggsave(here("figures", "log_linearity_by_age.png"), height = 20, width = 20, units = "cm", dpi = 300)
+ggsave(here("figures", "log_linearity_by_age.svg"), height = 20, width = 20, units = "cm", dpi = 300)
+
+```
+
+And let's do a less noisy version with just the full period 
+
+```{r}
+all_rsq %>% 
+  mutate(
+    period = case_when(
+      start_year == 1975 & end_year == 2018   ~ "1975 onwards",
+      start_year == 1975 & end_year == 1990   ~ "1975-1990",
+      start_year == 1991 & end_year == 2018   ~ "1991 onwards",
+      TRUE                                    ~ NA_character_
+    ) %>% factor(., levels = c("1975 onwards", "1975-1990", "1991 onwards"), ordered =TRUE)
+  ) %>% 
+  filter(sex != "total") %>% 
+  filter(period == "1975 onwards") %>% 
+  ggplot(aes(x = age, y = rsq)) + 
+  geom_line() + 
+  facet_grid(Country ~ sex) + 
+  labs(
+    x = "Age in years", 
+    y = "Log-linearity (R-squared)",
+    title = "Linearity in log mortality improvement rates, 1975 onwards"
+  ) + 
+  theme_minimal() 
+
+ggsave(here("figures", "log_linearity_by_age_1975onwards.png"), height = 20, width = 20, units = "cm", dpi = 300)
+ggsave(here("figures", "log_linearity_by_age_1975onwards.svg"), height = 20, width = 20, units = "cm", dpi = 300)
+
+
+```
+
+
+And a third version overlaid 
+
+
+```{r}
+all_rsq %>% 
+  mutate(
+    period = case_when(
+      start_year == 1975 & end_year == 2018   ~ "1975 onwards",
+      start_year == 1975 & end_year == 1990   ~ "1975-1990",
+      start_year == 1991 & end_year == 2018   ~ "1991 onwards",
+      TRUE                                    ~ NA_character_
+    ) %>% factor(., levels = c("1975 onwards", "1975-1990", "1991 onwards"), ordered =TRUE)
+  ) %>% 
+  filter(sex != "total") %>% 
+  filter(period == "1975 onwards") %>% 
+  ggplot(aes(x = age, y = rsq, group = Country, colour = Country)) + 
+  geom_line() + 
+  facet_grid(. ~ sex) + 
+  labs(
+    x = "Age in years", 
+    y = "Log-linearity (R-squared)",
+    title = "Linearity in log mortality improvement rates, 1975 onwards"
+  ) + 
+  theme_minimal() 
+
+ggsave(here("figures", "log_linearity_by_age_1975onwards_overlaid.png"), height = 10, width = 20, units = "cm", dpi = 300)
+ggsave(here("figures", "log_linearity_by_age_1975onwards_overlaid.svg"), height = 10, width = 20, units = "cm", dpi = 300)
+
+
+```
+
+```{r}
+all_rsq %>% 
+  mutate(
+    period = case_when(
+      start_year == 1975 & end_year == 2018   ~ "1975 onwards",
+      start_year == 1975 & end_year == 1990   ~ "1975-1990",
+      start_year == 1991 & end_year == 2018   ~ "1991 onwards",
+      TRUE                                    ~ NA_character_
+    ) %>% factor(., levels = c("1975 onwards", "1975-1990", "1991 onwards"), ordered =TRUE)
+  ) %>% 
+  filter(sex != "total") %>% 
+  filter(period == "1975-1990") %>% 
+  ggplot(aes(x = age, y = rsq, group = Country, colour = Country)) + 
+  geom_line() + 
+  facet_grid(. ~ sex) + 
+  labs(
+    x = "Age in years", 
+    y = "Log-linearity (R-squared)",
+    title = "Linearity in log mortality improvement rates, 1975-1990"
+  ) + 
+  theme_minimal() 
+
+ggsave(here("figures", "log_linearity_by_age_1975_1990_overlaid.png"), height = 10, width = 20, units = "cm", dpi = 300)
+ggsave(here("figures", "log_linearity_by_age_1975_1990_overlaid.svg"), height = 10, width = 20, units = "cm", dpi = 300)
+
+
+```
+
+
+
+```{r}
+all_rsq %>% 
+  mutate(
+    period = case_when(
+      start_year == 1975 & end_year == 2018   ~ "1975 onwards",
+      start_year == 1975 & end_year == 1990   ~ "1975-1990",
+      start_year == 1991 & end_year == 2018   ~ "1991 onwards",
+      TRUE                                    ~ NA_character_
+    ) %>% factor(., levels = c("1975 onwards", "1975-1990", "1991 onwards"), ordered =TRUE)
+  ) %>% 
+  filter(sex != "total") %>% 
+  filter(period == "1991 onwards") %>% 
+  ggplot(aes(x = age, y = rsq, group = Country, colour = Country)) + 
+  geom_line() + 
+  facet_grid(. ~ sex) + 
+  labs(
+    x = "Age in years", 
+    y = "Log-linearity (R-squared)",
+    title = "Linearity in log mortality improvement rates, 1991 onwards"
+  ) + 
+  theme_minimal() 
+
+ggsave(here("figures", "log_linearity_by_age_1991_plus_overlaid.png"), height = 10, width = 20, units = "cm", dpi = 300)
+ggsave(here("figures", "log_linearity_by_age_1991_plus_overlaid.svg"), height = 10, width = 20, units = "cm", dpi = 300)
+
 
 ```

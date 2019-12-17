@@ -844,6 +844,14 @@ ggsave(here("figures", "log_linearity_by_age.svg"), height = 20, width = 20, uni
 
 ```
 
+From this figure the following features are apparent: 
+
+* Overall, high linearity ($R^2$ values around 1) in trends in infancy and old age (from around 70 to 90 years) is apparent in all populations. 
+* Over the late 80s and 90s the lienarity in trends reduces.
+* In most populations the age at which linearity in trends starts to fall increases when comparing the earlier (1975-1990) to latter (1991 onwards) periods. This is evidence by comparing the fall off in linearity with age within a population of the dot-dashed red line with the solid blue line. It tends to start falling off at a higher age in the latter than the earlier period. 
+* The USA is exceptional in that the trends are, from 1991, almost completely nonlinear in the late 20s for both sexes. For females this lack of linear improvement is also apparent in the early thirties, and in the mid 40s. 
+* Overall the USA 
+
 And let's do a less noisy version with just the full period 
 
 ```{r}
@@ -934,6 +942,10 @@ ggsave(here("figures", "log_linearity_by_age_1975_1990_overlaid.svg"), height = 
 
 ```
 
+From these it's clear that the USA has less linearity in trends in earlier working age, for both sexes, and that the USA is exceptional in this lack of linearity being observed in both males and females. The UK has a breakdown in linearity in males, and Canada, to a lesser extent, a breakdown in linearity in females. 
+
+It is also apparant that the USA has a breakdown in linearity with old age from a younger age than France and Japan. 
+
 
 
 ```{r}
@@ -963,3 +975,8 @@ ggsave(here("figures", "log_linearity_by_age_1991_plus_overlaid.svg"), height = 
 
 
 ```
+
+For completeness perhaps % improvement (the beta?) might also be helpful. 
+
+
+

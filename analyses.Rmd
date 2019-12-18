@@ -32,7 +32,8 @@ Analyses
 ```{r}
 pacman::p_load(
   tidyverse, ggrepel, here,
-  corrr, knitr, kableExtra, openxlsx
+  corrr, knitr, kableExtra, openxlsx,
+  MortalityLaws
 )
 
 dta_e0 <- read_rds(here("data", "e0.rds"      ))
@@ -64,6 +65,7 @@ dta_e0 %>%
   rename(Country = label) %>% 
   filter(year >= 1975) %>% 
   filter(sex != "total") %>% 
+  write_to_table(here("tables", "e0_for_select_countries.csv")) %>% 
   ggplot(aes(x = year, y = e0, group = Country, colour = Country, linetype = Country)) + 
   geom_line() + 
   facet_wrap(~sex) +
@@ -92,6 +94,7 @@ dta_e0 %>%
   ungroup() %>% 
   filter(year >= 1975) %>% 
   filter(sex != "total") %>% 
+  write_to_table(here("tables", "annual_ch_e0_selected_countries.csv")) %>% 
   ggplot(aes(x = year, y = ch_e0)) + 
   geom_point() + stat_smooth() + 
   facet_grid(Country~sex) +
@@ -107,6 +110,177 @@ dta_e0 %>%
 ggsave(here("figures", "01_ch_e0.png"), height = 20, width = 15, units = "cm", dpi = 300)
 ggsave(here("figures", "01_ch_e0.svg"), height = 20, width = 15, units = "cm", dpi = 300)
 
+
+```
+
+# Lifespan disparity 
+
+To provide the conceptual bridge (the 'motivation') to the correlation plots, we should first calculate life disparity ($e^\dagger$), using the definition given in [Vaupel, Zhang & van Raalte (2011)](https://bmjopen.bmj.com/content/1/1/e000128). This states that : 
+
+> Life disparity is defined as the average remaining life expectancy at the ages when death occurs
+
+To calculate this we should first produce lifetables. We can check that, given $m_x$, the life expectancy $e_0$ is as extracted directly from the HMD above. Then we can calculate life disparity from the lifetable. We can also compare our estimates of $e_0$ and $e^\dagger$ with those in table 1 of the above (though it might not be for exactly the same year, and the data may have been adjusted since the 2011 HMD release). 
+
+```{r}
+
+#lifetable for one country and year 
+# Japan, 2009 (most likely to be the year in table 1)
+tmp <- 
+  dta_Mx %>% 
+    filter(code == "JPN", year == 2009, sex == "female")
+lt_jpn_f <- 
+  LifeTable(x = tmp$age, mx = tmp$Mx) # this matches table 1 value 
+lt_jpn_f
+
+tmp <- 
+  dta_Mx %>% 
+    filter(code == "JPN", year == 2009, sex == "male")
+
+lt_jpn_m <- 
+  LifeTable(x = tmp$age, mx = tmp$Mx) # this is within 0.1 years
+lt_jpn_m
+
+# So is e^dagger just the mean of the e_x columns? 
+
+mean(lt_jpn_f$lt$ex)
+
+# No, it's not. 
+
+# The simplified formula is 
+# sum(ex * fx)
+# so
+# sum(ex * lx * qx)
+
+lt_jpn_f$lt$ex * lt_jpn_f$lt$lx * lt_jpn_f$lt$qx
+
+# No, this isn't it either 
+
+# First need to calculate probability of survival to age a from qx
+
+# exp(-sum(qx))
+
+# Let's do this for a few select ages 
+# 0 , 20, 50, 80
+
+plot(lt_jpn_f$lt$x, exp(-cumsum(lt_jpn_f$lt$qx)))
+
+# This checks out 
+
+# So this is a two part process
+
+# 1)
+# calculate ell_x for each given x 
+# multiply ell_x by q_x (f_x)
+
+# 2) 
+# sum up product of e_x and f_x for all x up to \omega (last age)
+
+# Let's start to write a function to do this given contents of an lt object 
+
+calc_e_dagger_parts <- function(LT, omega = 100){
+  calc_ell_a <- function(LT, a){
+    exp(-sum(LT$mx[LT$x <= a]))
+  }
+  LT %>% 
+    filter(x <= omega) %>% 
+    mutate(ell_x = map_dbl(x, calc_ell_a, LT = LT)) %>% 
+    mutate(e_dagger_component = ell_x * ex * mx) %>% 
+    select(x, e_dagger_component)
+}
+
+tmp <- calc_e_dagger_parts(lt_jpn_f$lt)
+tmp
+sum(tmp$e_dagger_component)
+
+ggplot(tmp, aes(x = x, y = e_dagger_component)) + 
+  geom_line()
+
+# 9.1, compared with 9.2 in table 1
+
+tmp <- calc_e_dagger_parts(lt_jpn_m$lt)
+tmp
+sum(tmp$e_dagger_component)
+ggplot(tmp, aes(x = x, y = e_dagger_component)) + 
+  geom_line()
+
+
+# 10.5, compared with 10.6 in table 1
+
+
+```
+
+Having established that this seems to be the right approach, let's calculate e_dagger over time for each population, sex and year
+
+```{r}
+calc_e_dagger_parts <- function(LT, omega = 100){
+  calc_ell_a <- function(LT, a){
+    exp(-sum(LT$mx[LT$x <= a]))
+  }
+  LT %>% 
+    filter(x <= omega) %>% 
+    mutate(ell_x = map_dbl(x, calc_ell_a, LT = LT)) %>% 
+    mutate(e_dagger_component = ell_x * ex * mx) %>% 
+    select(x, e_dagger_component)
+}
+
+e_daggers <- 
+  dta_Mx %>% 
+    left_join(country_labels) %>% 
+    filter(label %in% c("USA", "Canada", "United Kingdom", "Japan", "France")) %>%
+    filter(year >= 1975) %>% 
+    rename(Country = label) %>% 
+    select(Country, sex, year, age, Mx) %>% 
+    group_by(Country, sex, year) %>% 
+    nest() %>% 
+    mutate(lifetable = map(data, ~LifeTable(x = .x$age, mx = .x$Mx)$lt)) %>% 
+    mutate(e_dagger_parts = map(lifetable, calc_e_dagger_parts)) %>% 
+    mutate(e_dagger       = map_dbl(e_dagger_parts, ~sum(.x$e_dagger_component))) %>% 
+    select(Country, sex, year, e_dagger)
+e_daggers 
+
+```
+
+Now to visualise
+
+```{r}
+e_daggers %>% 
+  write_to_table(here("tables", "e_daggers.csv")) %>% 
+  filter(sex != "total") %>% 
+  ggplot(aes(x = year, y = e_dagger, group = Country, colour = Country)) + 
+  geom_line() + 
+  facet_wrap(~sex) + 
+  labs(x = "Year", y = "Life Disparity (years)",
+       title = "Life disparity over time") +
+  theme_minimal() 
+
+ggsave(here("figures", "life_disparity.png"), height = 15, width = 20, units = "cm", dpi = 300)
+ggsave(here("figures", "life_disparity.svg"), height = 15, width = 20, units = "cm", dpi = 300)
+
+```
+
+Let's look at how $e_0$ and $e^\dagger$ compare over time. 
+
+```{r}
+e_daggers %>% 
+  left_join(
+    dta_e0 %>% 
+      left_join(country_labels) %>% 
+      filter(label %in% c("USA", "Canada", "United Kingdom", "Japan", "France")) %>% 
+      rename(Country = label)
+  ) %>% 
+  filter(sex != "total") %>% 
+  ggplot(aes(x = e_dagger, y = e0, colour = Country, group = Country)) +
+  geom_path(aes(alpha = year)) +
+  facet_wrap(. ~ sex) +
+  labs(
+    x = "Life disparity (years)", y = "Life expectancy at birth (years)",
+  title = "Relationship between life disparity and life expectancy since 1975",
+  subtitle = "Older years are more faded"
+  ) +
+  theme_minimal()
+
+ggsave(here("figures", "e_dagger_e0_paths.png"), height = 12, width = 20, units = "cm", dpi = 300)
+ggsave(here("figures", "e_dagger_e0_paths.svg"), height = 12, width = 20, units = "cm", dpi = 300)
 
 ```
 

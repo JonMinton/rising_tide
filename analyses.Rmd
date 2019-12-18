@@ -850,7 +850,9 @@ From this figure the following features are apparent:
 * Over the late 80s and 90s the lienarity in trends reduces.
 * In most populations the age at which linearity in trends starts to fall increases when comparing the earlier (1975-1990) to latter (1991 onwards) periods. This is evidence by comparing the fall off in linearity with age within a population of the dot-dashed red line with the solid blue line. It tends to start falling off at a higher age in the latter than the earlier period. 
 * The USA is exceptional in that the trends are, from 1991, almost completely nonlinear in the late 20s for both sexes. For females this lack of linear improvement is also apparent in the early thirties, and in the mid 40s. 
-* Overall the USA 
+* For both sexes combined and for the full period (black dashed line) the USA has a more severe drop in linearity in early adulthood for both sexes than other countries, though the UK has a more severe drop off for males in younger adulthood. However whereas in the UK this male fall in linearity is more severe in the earlier period than the latter period, in the USA it is as or more severe in the latter period than the earlier period. 
+* In the USA there is also a fall in linearity in middle age (around age 45 years), which is more pronounced for females than males. 
+
 
 And let's do a less noisy version with just the full period 
 

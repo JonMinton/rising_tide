@@ -121,7 +121,7 @@ To provide the conceptual bridge (the 'motivation') to the correlation plots, we
 
 To calculate this we should first produce lifetables. We can check that, given $m_x$, the life expectancy $e_0$ is as extracted directly from the HMD above. Then we can calculate life disparity from the lifetable. We can also compare our estimates of $e_0$ and $e^\dagger$ with those in table 1 of the above (though it might not be for exactly the same year, and the data may have been adjusted since the 2011 HMD release). 
 
-```{r}
+```{r, eval = FALSE}
 
 #lifetable for one country and year 
 # Japan, 2009 (most likely to be the year in table 1)
@@ -206,7 +206,6 @@ ggplot(tmp, aes(x = x, y = e_dagger_component)) +
 
 # 10.5, compared with 10.6 in table 1
 
-
 ```
 
 Having established that this seems to be the right approach, let's calculate e_dagger over time for each population, sex and year
@@ -223,7 +222,7 @@ calc_e_dagger_parts <- function(LT, omega = 100){
     select(x, e_dagger_component)
 }
 
-e_daggers <- 
+e_dagger_parts <- 
   dta_Mx %>% 
     left_join(country_labels) %>% 
     filter(label %in% c("USA", "Canada", "United Kingdom", "Japan", "France")) %>%
@@ -233,14 +232,25 @@ e_daggers <-
     group_by(Country, sex, year) %>% 
     nest() %>% 
     mutate(lifetable = map(data, ~LifeTable(x = .x$age, mx = .x$Mx)$lt)) %>% 
-    mutate(e_dagger_parts = map(lifetable, calc_e_dagger_parts)) %>% 
-    mutate(e_dagger       = map_dbl(e_dagger_parts, ~sum(.x$e_dagger_component))) %>% 
-    select(Country, sex, year, e_dagger)
+    mutate(e_dagger_parts = map(lifetable, calc_e_dagger_parts))
+
+e_daggers <- 
+  e_dagger_parts %>% 
+  mutate(e_dagger       = map_dbl(e_dagger_parts, ~sum(.x$e_dagger_component))) %>% 
+  select(Country, sex, year, e_dagger)
+
 e_daggers 
 
+e_dagger_parts <-
+  e_dagger_parts %>% 
+  select(Country, sex, year, e_dagger_parts) %>% 
+  unnest(e_dagger_parts) %>% 
+  ungroup()
+
+e_dagger_parts
 ```
 
-Now to visualise
+Now to visualise e_daggers
 
 ```{r}
 e_daggers %>% 
@@ -284,7 +294,53 @@ ggsave(here("figures", "e_dagger_e0_paths.svg"), height = 12, width = 20, units 
 
 ```
 
+What about the contributions of age specific components to life disparity overall? 
 
+
+```{r}
+e_dagger_parts %>%
+  filter(sex != "total") %>%
+  rename(age = x) %>% 
+  ggplot(aes(x = year, y = age, fill = e_dagger_component)) +
+  geom_tile() + 
+  coord_equal() + 
+  scale_fill_viridis_c() + 
+  facet_grid(sex ~ Country) + 
+  labs(
+    x = "Year", y = "Age in years",
+    title = "Age-specific contributions to life disparity by age and year",
+    subtitle = "All ages"
+  )
+
+ggsave(here("figures", "e_dagger_components_all_ages.png"), height = 25, width = 30, units = "cm", dpi = 300)
+ggsave(here("figures", "e_dagger_components_all_ages.svg"), height = 25, width = 30, units = "cm", dpi = 300)
+
+```
+
+As the historic contribution in infancy was so high, let's look at the same but from age 15 onwards. 
+
+```{r}
+e_dagger_parts %>%
+  filter(sex != "total") %>%
+  rename(age = x) %>%
+  filter(age >= 15) %>% 
+  ggplot(aes(x = year, y = age, fill = e_dagger_component)) +
+  geom_tile() + 
+  coord_equal() + 
+  scale_fill_viridis_c() + 
+  facet_grid(sex ~ Country) + 
+  labs(
+    x = "Year", y = "Age in years",
+    title = "Age-specific contributions to life disparity by age and year",
+    subtitle = "Ages from 15 years onwards"
+  )
+
+ggsave(here("figures", "e_dagger_components_from_15.png"), height = 25, width = 30, units = "cm", dpi = 300)
+ggsave(here("figures", "e_dagger_components_from_15.svg"), height = 25, width = 30, units = "cm", dpi = 300)
+
+```
+
+For females in France and Japan, life disparities are lowest, and the age components are concentrated around a relatively narrow age band. For males in Japan, life disparities are also low
 
 # Mx at specific ages 
 

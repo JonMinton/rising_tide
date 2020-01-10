@@ -340,7 +340,29 @@ ggsave(here("figures", "e_dagger_components_from_15.svg"), height = 25, width = 
 
 ```
 
-For females in France and Japan, life disparities are lowest, and the age components are concentrated around a relatively narrow age band. For males in Japan, life disparities are also low
+For females in France and Japan, life disparities are lowest, and the age components are concentrated around a relatively narrow age band. For males in Japan, life disparities are also low, and there are indications they improved for cohorts born after around 1930 (i.e. who were in their 60s in 1990).
+
+An age band of higher disparity contributions is visible from around age 18, for males. This was historically much larger in France than it currently is, along with Canada to a lesser extent. It is more evident in the UK than for Japan, and is most elevated and persistent in the USA. 
+
+In the USA the age contributions to disparity are wider/evident at more ages than in the other countries, and have become slightly more spread out. There is a distinct feature for males aged between around 25 and 50 which disappeared rapidly in the mid/late 1990s. A less pronounced varient of this feature is also apparent for males in France. 
+
+Let's now present the above results in a slightly different way, there are a few options. Let's start by doing a cumulative sum plot
+
+```{r}
+e_dagger_parts %>% 
+  group_by(Country, sex, year) %>% 
+  arrange(x) %>% 
+  mutate(cumprop_dagger = cumsum(e_dagger_component) / sum(e_dagger_component)) %>% 
+  ggplot(aes(x = x, y = cumprop_dagger, colour = year, group = year)) +
+  geom_line() + 
+  facet_grid(Country ~ sex) +
+  scale_colour_viridis_c() +
+  labs(x = "Age in years", y = "Cumulative share of e_dagger components",
+       title = "Age specific contributions to cumulative share of e_dagger over time")
+
+ggsave(here("figures", "e_dagger_cumulative_shares.png"), height = 20, width = 25, units = "cm", dpi = 300)
+
+```
 
 # Mx at specific ages 
 

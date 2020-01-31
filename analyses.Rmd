@@ -964,6 +964,131 @@ ggsave(here("figures", "heatmap_1991_last.png"), width = 18, height = 35, units 
 
 ```
 
+## New Request : 2000-2010 and 2011 onwards
+
+```{r}
+dta_trnd <- dta_Mx %>% 
+  filter(sex != "total") %>%
+    left_join(country_labels) %>% 
+    filter(label %in% c("USA", "Canada", "United Kingdom", "Japan", "France")) %>% 
+    rename(Country = label) %>% 
+  filter(between(year, 2000, 2010))  %>% 
+  filter(age <= 109) %>% 
+  group_by(Country, sex, year, age) %>% 
+  summarise(mean_Mx = mean(Mx, na.rm = T)) %>% 
+  ungroup() %>% 
+  mutate(log_mean_Mx = log(mean_Mx, 10)) %>% 
+  group_by(sex, Country) %>% 
+  nest()
+
+
+cors_df <- dta_trnd %>% 
+  mutate(cors = map(
+    data, 
+    function(X) {
+      X %>% 
+        select(-mean_Mx) %>% 
+        spread(age, log_mean_Mx) %>% 
+        select(-year) %>% 
+        cor()
+      }
+    )
+  ) %>% 
+  mutate(cor_df = map(
+    cors,
+    function(X){
+      X %>% 
+        as_tibble() %>% 
+        mutate(from_age = rownames(X)) %>% 
+        gather(key = "to_age", value = "value", -from_age) %>% 
+        mutate(from_age = as.numeric(from_age), to_age = as.numeric(to_age))
+      }
+    )
+  ) %>% 
+  select(sex, Country, cor_df) %>% 
+  unnest()
+
+
+cors_df %>% 
+  filter(from_age <= 100, to_age <= 100) %>% 
+  rename(r = value) %>% 
+  ggplot(aes(x = from_age, y = to_age, fill = r)) + 
+  geom_tile() +
+  scale_fill_distiller(palette = "RdBu", limits = c(-1,1), direction = 1) +
+  scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+  scale_y_continuous(breaks = seq(0, 100, by = 10)) +
+  coord_equal() + 
+  facet_grid(Country ~ sex) +
+  labs(x = "", y = "",
+       title = "Correlation between % improvement\ntrends at specific ages on x and y axes",
+       subtitle = "2000-2010")
+
+ggsave(here("figures", "heatmap_2000_2010.png"), width = 18, height = 35, units = "cm", dpi = 300)
+# ggsave(here("figures", "heatmap_1975_1990.svg"), width = 18, height = 35, units = "cm", dpi = 300)
+
+```
+
+```{r}
+dta_trnd <- dta_Mx %>% 
+  filter(sex != "total") %>%
+    left_join(country_labels) %>% 
+    filter(label %in% c("USA", "Canada", "United Kingdom", "Japan", "France")) %>% 
+    rename(Country = label) %>% 
+  filter(year >= 2011)  %>% 
+  filter(age <= 109) %>% 
+  group_by(Country, sex, year, age) %>% 
+  summarise(mean_Mx = mean(Mx, na.rm = T)) %>% 
+  ungroup() %>% 
+  mutate(log_mean_Mx = log(mean_Mx, 10)) %>% 
+  group_by(sex, Country) %>% 
+  nest()
+
+
+cors_df <- dta_trnd %>% 
+  mutate(cors = map(
+    data, 
+    function(X) {
+      X %>% 
+        select(-mean_Mx) %>% 
+        spread(age, log_mean_Mx) %>% 
+        select(-year) %>% 
+        cor()
+      }
+    )
+  ) %>% 
+  mutate(cor_df = map(
+    cors,
+    function(X){
+      X %>% 
+        as_tibble() %>% 
+        mutate(from_age = rownames(X)) %>% 
+        gather(key = "to_age", value = "value", -from_age) %>% 
+        mutate(from_age = as.numeric(from_age), to_age = as.numeric(to_age))
+      }
+    )
+  ) %>% 
+  select(sex, Country, cor_df) %>% 
+  unnest()
+
+
+cors_df %>% 
+  filter(from_age <= 100, to_age <= 100) %>% 
+  rename(r = value) %>% 
+  ggplot(aes(x = from_age, y = to_age, fill = r)) + 
+  geom_tile() +
+  scale_fill_distiller(palette = "RdBu", limits = c(-1,1), direction = 1) +
+  scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+  scale_y_continuous(breaks = seq(0, 100, by = 10)) +
+  coord_equal() + 
+  facet_grid(Country ~ sex) +
+  labs(x = "", y = "",
+       title = "Correlation between % improvement\ntrends at specific ages on x and y axes",
+       subtitle = "2011 onwards")
+
+ggsave(here("figures", "heatmap_2011_onwards.png"), width = 18, height = 35, units = "cm", dpi = 300)
+# ggsave(here("figures", "heatmap_1975_1990.svg"), width = 18, height = 35, units = "cm", dpi = 300)
+
+```
 
 # Workbooks 
 

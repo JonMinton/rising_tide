@@ -268,6 +268,25 @@ ggsave(here("figures", "life_disparity.svg"), height = 15, width = 20, units = "
 
 ```
 
+Now a version focusing on 2000 and beyond 
+
+
+```{r}
+e_daggers %>% 
+  filter(year >= 2000) %>% 
+  filter(sex != "total") %>% 
+  ggplot(aes(x = year, y = e_dagger, group = Country, colour = Country)) + 
+  geom_line() + 
+  facet_wrap(~sex) + 
+  labs(x = "Year", y = "Life Disparity (years)",
+       title = "Life disparity since 2000") +
+  theme_minimal() 
+
+ggsave(here("figures", "life_disparity_since_2000.png"), height = 15, width = 20, units = "cm", dpi = 300)
+ggsave(here("figures", "life_disparity_since_2000.svg"), height = 15, width = 20, units = "cm", dpi = 300)
+
+```
+
 Let's look at how $e_0$ and $e^\dagger$ compare over time. 
 
 ```{r}
@@ -362,6 +381,51 @@ e_dagger_parts %>%
 
 ggsave(here("figures", "e_dagger_cumulative_shares.png"), height = 20, width = 25, units = "cm", dpi = 300)
 
+```
+
+## Additional request: life disparity for Japan, 1947 and 2017
+
+```{r}
+e_dagger_parts_jpn <- 
+  dta_Mx %>% 
+    left_join(country_labels) %>% 
+    filter(label %in% c("Japan")) %>%
+    filter(year %in% c(1947, 2017)) %>% 
+    rename(Country = label) %>% 
+    select(Country, sex, year, age, Mx) %>% 
+    group_by(Country, sex, year) %>% 
+    nest() %>% 
+    mutate(lifetable = map(data, ~LifeTable(x = .x$age, mx = .x$Mx)$lt)) %>% 
+    mutate(e_dagger_parts = map(lifetable, calc_e_dagger_parts))
+
+e_daggers_jpn <- 
+  e_dagger_parts_jpn %>% 
+  mutate(e_dagger       = map_dbl(e_dagger_parts, ~sum(.x$e_dagger_component))) %>% 
+  select(Country, sex, year, e_dagger)
+
+e_daggers_jpn %>% write_csv("clipboard")
+
+# Lifetable alone 
+
+dta_Mx %>% 
+  left_join(country_labels) %>% 
+  filter(label %in% c("Japan")) %>%
+  filter(year %in% c(1947, 2017)) %>% 
+  rename(Country = label) %>% 
+  select(Country, sex, year, age, Mx) %>% 
+  group_by(Country, sex, year) %>% 
+  nest() %>% 
+  mutate(lifetable = map(data, ~LifeTable(x = .x$age, mx = .x$Mx)$lt)) %>% 
+  select(-data) %>% 
+  unnest(lifetable) %>% write_csv(here("tables", "jpn_lifetable.csv"))
+
+e_dagger_parts_jpn <-
+  e_dagger_parts_jpn %>% 
+  select(Country, sex, year, e_dagger_parts) %>% 
+  unnest(e_dagger_parts) %>% 
+  ungroup()
+
+e_dagger_parts_jpn %>% write_csv("clipboard")
 ```
 
 # Mx at specific ages 
@@ -633,7 +697,7 @@ corrs_wide_1991_last
 
 Now to display as a nice table 
 
-```{r}
+```{r, results ='asis'}
 options(knitr.kable.NA = '')
 
 corrs_wide_1991_last %>% 
@@ -643,6 +707,60 @@ corrs_wide_1991_last %>%
   collapse_rows(columns = 1)
 
 ```
+
+## New request: Split at 2000-2010; 2011-last year
+
+```{r}
+mx_corrs_decade_split <- 
+  dta_Mx %>% 
+    left_join(country_labels) %>% 
+    filter(label %in% c("USA", "Canada", "United Kingdom", "Japan", "France")) %>% 
+    rename(Country = label) %>%
+    mutate(period = case_when(
+      between(year, 2000, 2010)    ~ "2000-10",
+      between(year, 2011, 2020)    ~ "2011 onwards",
+      TRUE                         ~ NA_character_
+      )
+    ) %>% 
+    filter(!is.na(period)) %>% 
+    filter(age %in% c(0, 40, 80, 90)) %>% 
+    filter(sex != "total") %>% 
+    mutate(lnmx = log(Mx)) %>%
+    select(-Mx) %>% 
+    select(period, Country, sex, age, year, lnmx) %>% 
+    spread(age, lnmx) %>% 
+    select(-year) %>% 
+    group_by(period, sex, Country) %>% 
+    nest() %>% 
+    mutate(correlations = map(data, corrstretch)) %>% 
+    select(period, Country, sex, correlations) %>% 
+    unnest(correlations) 
+
+
+```
+
+Is there some way of visualising this? 
+
+```{r}
+mx_corrs_decade_split %>% 
+  unite(col = "sex_period", sex, period, remove = TRUE) %>% 
+  ggplot(aes(x = x, y = y, fill = r)) + 
+  geom_tile() +
+  geom_text(aes(label = round(r, 2))) + 
+  facet_grid(Country ~ sex_period) + 
+  scale_fill_distiller(palette = "RdBu", limits = c(-1,1), direction = 1) +
+  labs(
+    x = "Age in years", 
+    y = "Age in years",
+    title = "Correlation between trends in log mortality at selected ages",
+    subtitle = "Pearson Correlation"
+  )
+
+ggsave(here("figures", "r_by_decade_selected_ages.png"), height = 20, width =25, units = "cm", dpi = 300)
+
+```
+
+Actually we want to R-squared by period
 
 
 
@@ -1051,10 +1169,10 @@ all_rsq <-
     group_by(Country, sex, age) %>% 
     nest() %>% 
     crossing(
-      start_year = c(1975, 1991),
-      end_year   = c(1990, 2018)
+      start_year = c(1975, 1991, 2000, 2011),
+      end_year   = c(1990, 2000, 2010, 2018)
     ) %>% 
-    filter(!(end_year < start_year)) %>% 
+    filter(!(end_year <= start_year)) %>% 
     mutate(rsq = pmap_dbl(
       .l = list(DTA = data, start_year = start_year, end_year = end_year),
       .f = possibly(get_rsq, otherwise = NA_real_)
@@ -1232,5 +1350,37 @@ ggsave(here("figures", "log_linearity_by_age_1991_plus_overlaid.svg"), height = 
 
 For completeness perhaps % improvement (the beta?) might also be helpful. 
 
+Finally, let's do for the 2000s and post 2011 period 
 
+
+```{r}
+all_rsq %>% 
+  mutate(
+    period = case_when(
+      start_year == 2000 & end_year == 2018   ~ "2000 onwards",
+      start_year == 2000 & end_year == 2010   ~ "2000-2010",
+      start_year == 2011 & end_year == 2018   ~ "2011 onwards",
+      TRUE                                    ~ NA_character_
+    ) %>% factor(., levels = c("2000 onwards", "2000-2010", "2011 onwards"), ordered =TRUE)
+  ) %>% 
+  filter(sex != "total") %>% 
+  filter(!is.na(period)) %>% 
+  ggplot(aes(x = age, y = rsq, group = period, linetype = period, colour = period)) + 
+  geom_line() + 
+  facet_grid(Country ~ sex) + 
+  labs(
+    x = "Age in years", 
+    y = "Log-linearity (R-squared)",
+    title = "Linearity in log mortality improvement rates, 2000-2010 and 2011 onwards"
+  ) + 
+  theme_minimal() +
+  scale_colour_manual(values = c("black", "darkred", "darkblue")) +
+  scale_linetype_manual(values = c("dashed", "dotdash", "solid"))
+
+ ggsave(here("figures", "log_linearity_by_age_twodecades.png"), height = 20, width = 20, units = "cm", dpi = 300)
+ ggsave(here("figures", "log_linearity_by_age_twodecades.png"), height = 20, width = 20, units = "cm", dpi = 300)
+
+
+
+```
 

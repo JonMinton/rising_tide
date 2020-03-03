@@ -33,7 +33,7 @@ Analyses
 pacman::p_load(
   tidyverse, ggrepel, here,
   corrr, knitr, kableExtra, openxlsx,
-  MortalityLaws
+  MortalityLaws, patchwork
 )
 
 dta_e0 <- read_rds(here("data", "e0.rds"      ))
@@ -68,6 +68,7 @@ calc_e_dagger_parts <- function(LT, omega = 100){
 }
 
 ```
+
 # e0
 
 ```{r}
@@ -178,13 +179,15 @@ jpn_lt <-
 p1 <- 
   jpn_lt %>% 
     filter(sex == "total") %>% 
-    ggplot(aes(x = x, y = lx, linetype = factor(year), group = factor(year))) + 
+    ggplot(aes(x = x, y = lx, linetype = factor(year), group = factor(year), colour = factor(year))) + 
     geom_line() + 
     scale_linetype_manual("Year", values = c("dotdash", "dashed", "solid")) + 
     theme_minimal()  + 
     labs(
+      title = "Period survival by age",
       x = "Age in years", 
-      y = "Proportion (out of 100 000) surviving to given age"
+      y = "Proportion (out of 100 000) surviving to given age",
+      colour = "Year"
       
     )
 
@@ -197,7 +200,7 @@ p1 <-
 # 
 # e_dagger_parts_jpn %>% write_csv("clipboard")
 
-ggsave(plot = p1, filename = here("figures", "fig_4_jpn_pt1.svg"))
+# ggsave(plot = p1, filename = here("figures", "fig_4_jpn_pt1.svg"))
 
 ```
 
@@ -208,14 +211,16 @@ e_dagger_parts_jpn %>%
   select(year, e_dagger_parts) %>% 
   unnest(e_dagger_parts) %>% 
   filter(x <= 10) %>% 
-  ggplot(aes(x = x, y = e_dagger_component, group = factor(year), linetype = factor(year))) + 
+  ggplot(aes(x = x, y = e_dagger_component, group = factor(year), linetype = factor(year), colour = factor(year))) + 
   scale_x_continuous(breaks = 0:9) + 
   geom_line() + 
   theme_minimal() +
   scale_linetype_manual("Year", values = c("dotdash", "dashed", "solid")) +
   labs(
+    title = "Lifespan disparity (Infancy/early Childhood)",
     x = "Age in years",
-    y = "Contribution to life disparity"
+    y = "Contribution to life disparity",
+    colour = "Year"
   ) + 
   theme(legend.position = "none")
 
@@ -225,21 +230,37 @@ e_dagger_parts_jpn %>%
   select(year, e_dagger_parts) %>% 
   unnest(e_dagger_parts) %>% 
   filter(x >= 10) %>% 
-  ggplot(aes(x = x, y = e_dagger_component, group = factor(year), linetype = factor(year))) + 
+  ggplot(aes(x = x, y = e_dagger_component, group = factor(year), linetype = factor(year), colour = factor(year))) + 
   geom_line() + 
   theme_minimal() +
   scale_linetype_manual("Year", values = c("dotdash", "dashed", "solid")) +
   labs(
+    title = "Lifespan disparity (Adulthood)",
     x = "Age in years",
-    y = NULL
-  )
+    y = NULL,
+    colour = "Year"
+  ) + 
+  theme(legend.position = "none")
 
 
-ggsave(plot = p2, filename = here("figures", "fig_4_jpn_pt2.svg"))
-ggsave(plot = p3, filename = here("figures", "fig_4_jpn_pt3.svg"))
+#ggsave(plot = p2, filename = here("figures", "fig_4_jpn_pt2.svg"))
+#ggsave(plot = p3, filename = here("figures", "fig_4_jpn_pt3.svg"))
 
 ```
 
+Now to combine using patchwork
+
+```{r}
+p1 / (p2 + p3) + plot_layout(guide = "collect") +
+  plot_annotation(
+    title = 'Changing mortality hazard and lifespan disparity contributions in Japan',
+    caption = 'Source: Human Mortality Database'
+)
+
+ggsave(here("figures", "figure_04_japan_intro.png"), height = 30, width = 30, units = "cm", dpi = 300)
+ggsave(here("figures", "figure_04_japan_intro.svg"), height = 30, width = 30, units = "cm", dpi = 300)
+
+```
 
 # Lifespan disparity 
 
@@ -1538,6 +1559,8 @@ ggsave(here("figures", "log_linearity_by_age_1975onwards_overlaid.svg"), height 
 
 
 ```
+
+
 
 ```{r}
 all_rsq %>% 

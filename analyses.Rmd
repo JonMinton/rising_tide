@@ -1660,3 +1660,107 @@ all_rsq %>%
 
 ```
 
+
+
+
+
+# Request: simplified version 
+
+* Japan and UK
+* No 2000 onwards overall
+
+```{r}
+all_rsq %>% 
+  mutate(
+    period = case_when(
+      start_year == 2000 & end_year == 2010   ~ "2000-2010",
+      start_year == 2011 & end_year == 2018   ~ "2011 onwards",
+      TRUE                                    ~ NA_character_
+    ) %>% factor(., levels = c("2000-2010", "2011 onwards"), ordered =TRUE)
+  ) %>% 
+  filter(sex != "total") %>% 
+  filter(Country %in% c("Japan", "United Kingdom")) %>% 
+  filter(!is.na(period)) %>% 
+  ggplot(aes(x = age, y = rsq, group = period, linetype = period, colour = period)) + 
+  geom_line() + 
+  facet_grid(Country ~ sex) + 
+  labs(
+    x = "Age in years", 
+    y = "Log-linearity (R-squared)",
+    title = "Linearity in log mortality improvement rates, 2000-2010 and 2011 onwards"
+  ) + 
+  theme_minimal() +
+  scale_colour_manual(values = c("black", "darkred")) +
+  scale_linetype_manual(values = c("dashed",  "solid"))
+
+ ggsave(here("figures", "ukjpn_log_linearity_by_age_twodecades.png"), height = 15, width = 20, units = "cm", dpi = 300)
+ ggsave(here("figures", "ukjpn_log_linearity_by_age_twodecades.png"), height = 15, width = 20, units = "cm", dpi = 300)
+
+
+
+```
+
+
+And with points instead 
+
+```{r}
+all_rsq %>% 
+  mutate(
+    period = case_when(
+      start_year == 2000 & end_year == 2010   ~ "2000-2010",
+      start_year == 2011 & end_year == 2018   ~ "2011 onwards",
+      TRUE                                    ~ NA_character_
+    ) %>% factor(., levels = c("2000-2010", "2011 onwards"), ordered =TRUE)
+  ) %>% 
+  filter(sex != "total") %>% 
+  filter(Country %in% c("Japan", "United Kingdom")) %>% 
+  filter(!is.na(period)) %>% 
+  ggplot(aes(x = age, y = rsq, group = period, linetype = period, colour = period, shape = period)) + 
+  geom_point() + 
+  facet_grid(Country ~ sex) + 
+  labs(
+    x = "Age in years", 
+    y = "Log-linearity (R-squared)",
+    title = "Linearity in log mortality improvement rates, 2000-2010 and 2011 onwards"
+  ) + 
+  theme_minimal() +
+  scale_colour_manual(values = c("black", "darkred")) 
+
+ ggsave(here("figures", "ukjpn_log_linearity_by_age_twodecades_points.png"), height = 15, width = 20, units = "cm", dpi = 300)
+
+
+
+```
+
+And with smoothers too 
+
+```{r}
+all_rsq %>% 
+  mutate(
+    period = case_when(
+      start_year == 2000 & end_year == 2010   ~ "2000-2010",
+      start_year == 2011 & end_year == 2018   ~ "2011 onwards",
+      TRUE                                    ~ NA_character_
+    ) %>% factor(., levels = c("2000-2010", "2011 onwards"), ordered =TRUE)
+  ) %>% 
+  filter(sex != "total") %>% 
+  filter(Country %in% c("Japan", "United Kingdom")) %>% 
+  filter(!is.na(period)) %>% 
+  ggplot(aes(x = age, y = rsq, group = period, linetype = period, colour = period, shape = period)) + 
+  geom_point() + 
+  stat_smooth(se = FALSE, n = 100) + 
+  facet_grid(Country ~ sex) + 
+  labs(
+    x = "Age in years", 
+    y = "Log-linearity (R-squared)",
+    title = "Linearity in log mortality improvement rates, 2000-2010 and 2011 onwards"
+  ) + 
+  theme_minimal() +
+  scale_colour_manual(values = c("black", "darkred")) +
+  scale_linetype_manual(values = c("dashed",  "solid"))
+
+ ggsave(here("figures", "ukjpn_log_linearity_by_age_twodecades_points_smoother.png"), height = 15, width = 20, units = "cm", dpi = 300)
+
+
+
+```

@@ -1764,3 +1764,83 @@ all_rsq %>%
 
 
 ```
+
+
+
+# Quick calculation : life expectancy and lifespan disparities in Japan and UK
+
+
+```{r}
+e_daggers %>% 
+  filter(Country %in% c("Japan", "United Kingdom")) %>% 
+  filter(sex == "total") %>% 
+  ggplot(aes(x = year, y = e_dagger)) + 
+  facet_wrap(~Country) + 
+  geom_line() +
+  annotate(geom = "rect", xmin = 1990, xmax = 2001, ymin = -Inf, ymax = Inf, alpha = 0.1, fill = "red") + 
+  annotate(geom = "rect", xmin = 2008, xmax = 2019, ymin = -Inf, ymax = Inf, alpha = 0.1, fill = "green") + 
+  labs(
+    x = "year", y = "Lifespan disparity (years)",
+    title = "Lifespan disparity in Japan and the UK",
+    subtitle = "Shaded regions indicate Japan's and the UK's 'lost decades', respectively"
+  )
+
+ggsave(here("figures", "uk_jpn_disparity.png"), height = 20, width = 30, units = "cm", dpi = 300)
+
+```
+
+
+```{r}
+dta_e0 %>% 
+  filter(code %in% c("JPN", "GBR_NP")) %>% 
+  filter(year > 1975) %>% 
+  mutate(Country = case_when(
+    code == 'JPN'    ~ "Japan",
+    code == "GBR_NP" ~ "United Kingdom" 
+  )) %>% 
+  filter(sex == "total") %>% 
+  ggplot(aes(x = year, y = e0)) + 
+  facet_wrap(~Country) + 
+  geom_line() +
+  annotate(geom = "rect", xmin = 1990, xmax = 2001, ymin = -Inf, ymax = Inf, alpha = 0.1, fill = "red") + 
+  annotate(geom = "rect", xmin = 2008, xmax = 2019, ymin = -Inf, ymax = Inf, alpha = 0.1, fill = "green") + 
+  labs(
+    x = "year", y = "Life expectancy at birth (years)",
+    title = "Life expectancy in Japan and the UK",
+    subtitle = "Shaded regions indicate Japan's and the UK's 'lost decades', respectively"
+  )
+
+ggsave(here("figures", "uk_jpn_e0.png"), height = 20, width = 30, units = "cm", dpi = 300)
+
+```
+
+```{r}
+dta_e0 %>% 
+  filter(code %in% c("JPN", "GBR_NP")) %>% 
+  filter(sex == "total") %>% 
+  group_by(code) %>% 
+  arrange(year) %>% 
+  mutate(ch_e0 = e0 - lag(e0)) %>% 
+  ungroup() %>% 
+  filter(year > 1975) %>% 
+  mutate(Country = case_when(
+    code == 'JPN'    ~ "Japan",
+    code == "GBR_NP" ~ "United Kingdom" 
+  )) %>% 
+  ggplot(aes(x = year, y = ch_e0)) + 
+  facet_wrap(~Country) + 
+  geom_line() +
+  geom_hline(yintercept = 0) +
+  annotate(geom = "rect", xmin = 1990, xmax = 2001, ymin = -Inf, ymax = Inf, alpha = 0.1, fill = "red") + 
+  annotate(geom = "rect", xmin = 2008, xmax = 2019, ymin = -Inf, ymax = Inf, alpha = 0.1, fill = "green") + 
+  labs(
+    x = "year", y = "Annual change in life expectancy at birth (years)",
+    title = "Annual changes in life expectancy in Japan and the UK",
+    subtitle = "Shaded regions indicate Japan's and the UK's 'lost decades', respectively"
+  )
+
+ggsave(here("figures", "uk_jpn_ch_e0.png"), height = 20, width = 30, units = "cm", dpi = 300)
+
+```
+
+

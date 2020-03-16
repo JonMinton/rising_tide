@@ -1747,7 +1747,7 @@ all_rsq %>%
   filter(Country %in% c("Japan", "United Kingdom")) %>% 
   filter(!is.na(period)) %>% 
   ggplot(aes(x = age, y = rsq, group = period, linetype = period, colour = period, shape = period)) + 
-  geom_point() + 
+  geom_point(alpha = 0.35) + 
   stat_smooth(se = FALSE, n = 100) + 
   facet_grid(Country ~ sex) + 
   labs(

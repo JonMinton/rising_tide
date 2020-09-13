@@ -262,6 +262,144 @@ ggsave(here("figures", "figure_04_japan_intro.svg"), height = 30, width = 30, un
 
 ```
 
+# equivalent figure ('fig 4') for USA 
+
+As requested 9/2020
+
+This will be for 'figure 4' in the manuscript
+
+For 1975, and 2017
+
+- lifetable dead per 100,000 by age 
+
+
+Save as svg to make annotation easier 
+
+
+
+```{r}
+e_dagger_parts_usa <-
+  dta_Mx %>%
+    left_join(country_labels) %>%
+    filter(label %in% c("USA")) %>%
+    filter(year %in% c(1947, 1975, 2017)) %>%
+    rename(Country = label) %>%
+    select(Country, sex, year, age, Mx) %>%
+    group_by(Country, sex, year) %>%
+    nest() %>%
+    mutate(lifetable = map(data, ~LifeTable(x = .x$age, mx = .x$Mx)$lt)) %>%
+    mutate(e_dagger_parts = map(lifetable, calc_e_dagger_parts))
+# 
+# e_daggers_jpn <- 
+#   e_dagger_parts_jpn %>% 
+#   mutate(e_dagger       = map_dbl(e_dagger_parts, ~sum(.x$e_dagger_component))) %>% 
+#   select(Country, sex, year, e_dagger)
+# 
+# e_daggers_jpn %>% write_csv("clipboard")
+
+# Lifetable alone 
+usa_lt <- 
+  dta_Mx %>% 
+    left_join(country_labels) %>% 
+    filter(label %in% c("USA")) %>%
+    filter(year %in% c(1947, 1975, 2017)) %>% 
+    rename(Country = label) %>% 
+    select(Country, sex, year, age, Mx) %>% 
+    group_by(Country, sex, year) %>% 
+    nest() %>% 
+    mutate(lifetable = map(data, ~LifeTable(x = .x$age, mx = .x$Mx)$lt)) %>% 
+    select(-data) %>% 
+    unnest(lifetable)  
+```
+
+```{r}
+
+p1 <- 
+  usa_lt %>% 
+    filter(sex == "total") %>% 
+    ggplot(aes(x = x, y = lx, linetype = factor(year), group = factor(year), colour = factor(year))) + 
+    geom_line() + 
+    scale_linetype_manual("Year", values = c("dotdash", "dashed", "solid")) + 
+    theme_minimal()  + 
+    labs(
+      title = "Period survival by age",
+      x = "Age in years", 
+      y = "Proportion (out of 100 000) surviving to given age",
+      colour = "Year"
+      
+    )
+
+
+  # e_dagger_parts_jpn <-
+#   e_dagger_parts_jpn %>% 
+#   select(Country, sex, year, e_dagger_parts) %>% 
+#   unnest(e_dagger_parts) %>% 
+#   ungroup()
+# 
+# e_dagger_parts_jpn %>% write_csv("clipboard")
+
+# ggsave(plot = p1, filename = here("figures", "fig_4_jpn_pt1.svg"))
+
+```
+
+```{r}
+p2 <- 
+e_dagger_parts_usa %>% 
+  filter(sex == "total") %>% 
+  select(year, e_dagger_parts) %>% 
+  unnest(e_dagger_parts) %>% 
+  filter(x <= 10) %>% 
+  ggplot(aes(x = x, y = e_dagger_component, group = factor(year), linetype = factor(year), colour = factor(year))) + 
+  scale_x_continuous(breaks = 0:9) + 
+  geom_line() + 
+  theme_minimal() +
+  scale_linetype_manual("Year", values = c("dotdash", "dashed", "solid")) +
+  labs(
+    title = "Lifespan disparity (Infancy/early Childhood)",
+    x = "Age in years",
+    y = "Contribution to life disparity",
+    colour = "Year"
+  ) + 
+  theme(legend.position = "none")
+
+p3 <- 
+e_dagger_parts_usa %>% 
+  filter(sex == "total") %>% 
+  select(year, e_dagger_parts) %>% 
+  unnest(e_dagger_parts) %>% 
+  filter(x >= 10) %>% 
+  ggplot(aes(x = x, y = e_dagger_component, group = factor(year), linetype = factor(year), colour = factor(year))) + 
+  geom_line() + 
+  theme_minimal() +
+  scale_linetype_manual("Year", values = c("dotdash", "dashed", "solid")) +
+  labs(
+    title = "Lifespan disparity (Adulthood)",
+    x = "Age in years",
+    y = NULL,
+    colour = "Year"
+  ) + 
+  theme(legend.position = "none")
+
+
+#ggsave(plot = p2, filename = here("figures", "fig_4_jpn_pt2.svg"))
+#ggsave(plot = p3, filename = here("figures", "fig_4_jpn_pt3.svg"))
+
+```
+
+Now to combine using patchwork
+
+```{r}
+p1 / (p2 + p3) + plot_layout(guide = "collect") +
+  plot_annotation(
+    title = 'Changing mortality hazard and lifespan disparity contributions in USA',
+    caption = 'Source: Human Mortality Database'
+)
+
+ggsave(here("figures", "figure_04a_usa_intro.png"), height = 30, width = 30, units = "cm", dpi = 300)
+ggsave(here("figures", "figure_04a_usa_intro.svg"), height = 30, width = 30, units = "cm", dpi = 300)
+
+```
+
 # Lifespan disparity 
 
 To provide the conceptual bridge (the 'motivation') to the correlation plots, we should first calculate life disparity ($e^\dagger$), using the definition given in [Vaupel, Zhang & van Raalte (2011)](https://bmjopen.bmj.com/content/1/1/e000128). This states that : 

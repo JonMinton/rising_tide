@@ -213,6 +213,7 @@ e_dagger_parts_jpn %>%
   filter(x <= 10) %>% 
   ggplot(aes(x = x, y = e_dagger_component, group = factor(year), linetype = factor(year), colour = factor(year))) + 
   scale_x_continuous(breaks = 0:9) + 
+  scale_y_continuous(limits = c(0, 5)) + 
   geom_line() + 
   theme_minimal() +
   scale_linetype_manual("Year", values = c("dotdash", "dashed", "solid")) +
@@ -233,6 +234,7 @@ e_dagger_parts_jpn %>%
   ggplot(aes(x = x, y = e_dagger_component, group = factor(year), linetype = factor(year), colour = factor(year))) + 
   geom_line() + 
   theme_minimal() +
+  scale_y_continuous(limits = c(0, 0.3)) + 
   scale_linetype_manual("Year", values = c("dotdash", "dashed", "solid")) +
   labs(
     title = "Lifespan disparity (Adulthood)",
@@ -351,6 +353,7 @@ e_dagger_parts_usa %>%
   filter(x <= 10) %>% 
   ggplot(aes(x = x, y = e_dagger_component, group = factor(year), linetype = factor(year), colour = factor(year))) + 
   scale_x_continuous(breaks = 0:9) + 
+  scale_y_continuous(limits = c(0, 5)) + 
   geom_line() + 
   theme_minimal() +
   scale_linetype_manual("Year", values = c("dotdash", "dashed", "solid")) +
@@ -371,6 +374,7 @@ e_dagger_parts_usa %>%
   ggplot(aes(x = x, y = e_dagger_component, group = factor(year), linetype = factor(year), colour = factor(year))) + 
   geom_line() + 
   theme_minimal() +
+  scale_y_continuous(limits = c(0, 0.3)) + 
   scale_linetype_manual("Year", values = c("dotdash", "dashed", "solid")) +
   labs(
     title = "Lifespan disparity (Adulthood)",
@@ -399,6 +403,76 @@ ggsave(here("figures", "figure_04a_usa_intro.png"), height = 30, width = 30, uni
 ggsave(here("figures", "figure_04a_usa_intro.svg"), height = 30, width = 30, units = "cm", dpi = 300)
 
 ```
+Now let's try to produce some faceted versions of these comparing USA with Japan. 
+
+```{r}
+e_dagger_parts_usa %>% 
+  bind_rows(
+    e_dagger_parts_jpn
+  ) %>% 
+  filter(sex == "total") %>% 
+  select(Country, year, e_dagger_parts) %>% 
+  unnest(cols = c(e_dagger_parts)) %>% 
+  mutate(age_group = case_when(
+    x <= 10 ~ "Earliest Ages",
+    x > 10  ~ "Later Ages"
+    )
+  ) %>% 
+  ggplot(aes(x = x, y = e_dagger_component, linetype = Country, colour = Country)) + 
+  facet_grid(age_group ~ factor(year), scales = "free_y" ) + 
+  geom_line()
+
+# Instead should split then recombine with patchwork. 
+
+# younger ages 
+tmp <- e_dagger_parts_usa %>% 
+  bind_rows(
+    e_dagger_parts_jpn
+  ) %>% 
+  filter(sex == "total") %>% 
+  select(Country, year, e_dagger_parts) %>% 
+  unnest(cols = c(e_dagger_parts)) %>% 
+  mutate(age_group = case_when(
+    x <= 10 ~ "Earliest Ages",
+    x > 10  ~ "Later Ages"
+    )
+  )
+
+e_dagger_younger_parts <- tmp %>% 
+  filter(age_group == "Earliest Ages")
+
+e_dagger_older_parts <- tmp %>% 
+  filter(age_group == "Later Ages")
+
+p1 <- e_dagger_younger_parts %>% 
+  ggplot(aes(x = x, y = e_dagger_component, linetype = Country, colour = Country)) + 
+  facet_grid(. ~ factor(year)) + 
+  geom_line() + 
+  scale_x_continuous(breaks = 0:10) + 
+  labs(x = "Age in years", y = "Contribution to lifespan disparity in years")
+p1
+
+p2 <- e_dagger_older_parts %>% 
+  ggplot(aes(x = x, y = e_dagger_component, linetype = Country, colour = Country)) + 
+  facet_grid(. ~ factor(year)) + 
+  geom_line() + 
+  scale_x_continuous() + 
+  labs(x = "Age in years", y = "Contribution to lifespan disparity in years")
+
+p2
+
+(p1 / p2) + 
+  plot_annotation(
+    title = 'Age-specific contributions to lifespan disparity, USA and Japan',
+    subtitle = "Selected years: 1947, 1975 and 2017",
+    caption = 'Source: Human Mortality Database'
+)
+
+
+ggsave(here("figures", "figure_x_disp_compare_usa_jpn.png"), height = 20, width = 30, units = "cm", dpi = 300)
+```
+
+
 
 # Lifespan disparity 
 

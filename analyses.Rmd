@@ -72,23 +72,26 @@ calc_e_dagger_parts <- function(LT, omega = 100){
 # e0
 
 ```{r}
-dta_e0 %>% 
-  left_join(country_labels) %>% 
-  filter(label %in% c("USA", "Canada", "United Kingdom", "Japan", "France")) %>% 
-  rename(Country = label) %>% 
-  filter(year >= 1975) %>% 
-  filter(sex != "total") %>% 
-  write_to_table(here("tables", "e0_for_select_countries.csv")) %>% 
-  ggplot(aes(x = year, y = e0, group = Country, colour = Country, linetype = Country)) + 
-  geom_line() + 
-  facet_wrap(~sex) +
-  labs(
-    x = "Year", y = "Life expectancy at birth",
-    title = "Life expectancy at birth for selected countries",
-    caption = "Source: Human Mortality Database"
-  ) + 
-  theme_minimal() 
 
+e0_plot <- 
+  dta_e0 %>% 
+    left_join(country_labels) %>% 
+    filter(label %in% c("USA", "Canada", "United Kingdom", "Japan", "France")) %>% 
+    rename(Country = label) %>% 
+    filter(year >= 1975) %>% 
+    filter(sex != "total") %>% 
+    write_to_table(here("tables", "e0_for_select_countries.csv")) %>% 
+    ggplot(aes(x = year, y = e0, group = Country, colour = Country, linetype = Country)) + 
+    geom_line() + 
+    facet_wrap(~sex) +
+    labs(
+      x = "Year", y = "Life expectancy at birth",
+      title = "Life expectancy at birth for selected countries",
+      caption = "Source: Human Mortality Database"
+    ) + 
+    theme_minimal() 
+
+e0_plot
 ggsave(here("figures", "00_e0.png"), height = 15, width = 20, units = "cm", dpi = 300)
 ggsave(here("figures", "00_e0.svg"), height = 15, width = 20, units = "cm", dpi = 300)
 
@@ -614,20 +617,40 @@ e_dagger_parts
 Now to visualise e_daggers
 
 ```{r}
-e_daggers %>% 
-  write_to_table(here("tables", "e_daggers.csv")) %>% 
-  filter(sex != "total") %>% 
-  ggplot(aes(x = year, y = e_dagger, group = Country, colour = Country)) + 
-  geom_line() + 
-  facet_wrap(~sex) + 
-  labs(x = "Year", y = "Life Disparity (years)",
-       title = "Life disparity over time") +
-  theme_minimal() 
 
+e_dagger_series <- 
+  e_daggers %>% 
+    write_to_table(here("tables", "e_daggers.csv")) %>% 
+    filter(sex != "total") %>% 
+    ggplot(aes(x = year, y = e_dagger, group = Country, colour = Country, linetype = Country)) + 
+    geom_line() + 
+    facet_wrap(~sex) + 
+    labs(x = "Year", y = "Life Disparity (years)",
+         title = "Life disparity over time") +
+    theme_minimal() 
+
+e_dagger_series 
 ggsave(here("figures", "life_disparity.png"), height = 15, width = 20, units = "cm", dpi = 300)
 ggsave(here("figures", "life_disparity.svg"), height = 15, width = 20, units = "cm", dpi = 300)
 
 ```
+
+Now to combine life expectancy and life disparity using patchwork 
+
+```{r}
+
+e0_plot / e_dagger_series + plot_layout(guide = "collect") +
+  plot_annotation(
+    title = 'Life Expectancy at Birth, and Life Disparity, over time',
+    caption = 'Source: Human Mortality Database'
+)
+
+ggsave(here("figures", "fig_2_4_combined_e0_disparity.png"), width = 30, height = 25, units = "cm", dpi = 300)
+
+
+```
+
+
 
 Now a version focusing on 2000 and beyond 
 
@@ -636,7 +659,7 @@ Now a version focusing on 2000 and beyond
 e_daggers %>% 
   filter(year >= 2000) %>% 
   filter(sex != "total") %>% 
-  ggplot(aes(x = year, y = e_dagger, group = Country, colour = Country)) + 
+  ggplot(aes(x = year, y = e_dagger, group = Country, colour = Country, linetype = Country)) + 
   geom_line() + 
   facet_wrap(~sex) + 
   labs(x = "Year", y = "Life Disparity (years)",

@@ -258,7 +258,7 @@ Now to combine using patchwork
 ```{r}
 p1 / (p2 + p3) + plot_layout(guide = "collect") +
   plot_annotation(
-    title = 'Changing mortality hazard and lifespan disparity contributions in Japan',
+    title = 'Changing mortality survivorship curve and lifespan disparity contributions in Japan',
     caption = 'Source: Human Mortality Database'
 )
 
@@ -398,7 +398,7 @@ Now to combine using patchwork
 ```{r}
 p1 / (p2 + p3) + plot_layout(guide = "collect") +
   plot_annotation(
-    title = 'Changing mortality hazard and lifespan disparity contributions in USA',
+    title = 'Changing mortality survivorship curve and lifespan disparity contributions in USA',
     caption = 'Source: Human Mortality Database'
 )
 

@@ -149,7 +149,7 @@
 <g clip-path='url(#cpMC4wMHw4NTAuMzl8ODUwLjM5fDAuMDA=)'><text x='353.20' y='811.02' style='font-size: 8.80px; fill: #4D4D4D; font-family: Arial;' textLength='4.89px' lengthAdjust='spacingAndGlyphs'>9</text></g>
 <g clip-path='url(#cpMC4wMHw4NTAuMzl8ODUwLjM5fDAuMDA=)'><text x='199.83' y='823.49' style='font-size: 11.00px; font-family: Arial;' textLength='61.14px' lengthAdjust='spacingAndGlyphs'>Age in years</text></g>
 <g clip-path='url(#cpMC4wMHw4NTAuMzl8ODUwLjM5fDAuMDA=)'><text transform='translate(18.83,691.44) rotate(-90)' style='font-size: 11.00px; font-family: Arial;' textLength='132.68px' lengthAdjust='spacingAndGlyphs'>Contribution to life disparity</text></g>
-<g clip-path='url(#cpMC4wMHw4NTAuMzl8ODUwLjM5fDAuMDA=)'><text x='58.18' y='442.16' style='font-size: 13.20px; font-family: Arial;' textLength='253.13px' lengthAdjust='spacingAndGlyphs'>Lifespan disparity (Infancy/early Childhood)</text></g>
+<g clip-path='url(#cpMC4wMHw4NTAuMzl8ODUwLjM5fDAuMDA=)'><text x='58.18' y='442.16' style='font-size: 13.20px; font-family: Arial;' textLength='224.51px' lengthAdjust='spacingAndGlyphs'>Life disparity (Infancy/early Childhood)</text></g>
 <defs>
   <clipPath id='cpNDA4LjEwfDg0NC45MXw4MzEuMjh8NDI3LjIz'>
     <rect x='408.10' y='427.23' width='436.81' height='404.05' />
@@ -197,7 +197,7 @@
 <g clip-path='url(#cpMC4wMHw4NTAuMzl8ODUwLjM5fDAuMDA=)'><text x='667.65' y='811.02' style='font-size: 8.80px; fill: #4D4D4D; font-family: Arial;' textLength='9.79px' lengthAdjust='spacingAndGlyphs'>75</text></g>
 <g clip-path='url(#cpMC4wMHw4NTAuMzl8ODUwLjM5fDAuMDA=)'><text x='752.18' y='811.02' style='font-size: 8.80px; fill: #4D4D4D; font-family: Arial;' textLength='14.68px' lengthAdjust='spacingAndGlyphs'>100</text></g>
 <g clip-path='url(#cpMC4wMHw4NTAuMzl8ODUwLjM5fDAuMDA=)'><text x='572.39' y='823.49' style='font-size: 11.00px; font-family: Arial;' textLength='61.14px' lengthAdjust='spacingAndGlyphs'>Age in years</text></g>
-<g clip-path='url(#cpMC4wMHw4NTAuMzl8ODUwLjM5fDAuMDA=)'><text x='430.74' y='442.16' style='font-size: 13.20px; font-family: Arial;' textLength='174.64px' lengthAdjust='spacingAndGlyphs'>Lifespan disparity (Adulthood)</text></g>
+<g clip-path='url(#cpMC4wMHw4NTAuMzl8ODUwLjM5fDAuMDA=)'><text x='430.74' y='442.16' style='font-size: 13.20px; font-family: Arial;' textLength='146.01px' lengthAdjust='spacingAndGlyphs'>Life disparity (Adulthood)</text></g>
 <defs>
   <clipPath id='cpNzg2LjE0fDgzOS40M3w0NjIuMzJ8MzgzLjg1'>
     <rect x='786.14' y='383.85' width='53.29' height='78.47' />
@@ -326,5 +326,5 @@
   </clipPath>
 </defs>
 <g clip-path='url(#cpMC4wMHw4NTAuMzl8ODUwLjM5fDAuMDA=)'><text x='702.48' y='843.06' style='font-size: 8.80px; font-family: Arial;' textLength='136.95px' lengthAdjust='spacingAndGlyphs'>Source: Human Mortality Database</text></g>
-<g clip-path='url(#cpMC4wMHw4NTAuMzl8ODUwLjM5fDAuMDA=)'><text x='10.96' y='14.93' style='font-size: 13.20px; font-family: Arial;' textLength='479.85px' lengthAdjust='spacingAndGlyphs'>Changing mortality survivorship curve and lifespan disparity contributions in Japan</text></g>
+<g clip-path='url(#cpMC4wMHw4NTAuMzl8ODUwLjM5fDAuMDA=)'><text x='10.96' y='14.93' style='font-size: 13.20px; font-family: Arial;' textLength='451.22px' lengthAdjust='spacingAndGlyphs'>Changing mortality survivorship curve and life disparity contributions in Japan</text></g>
 </svg>

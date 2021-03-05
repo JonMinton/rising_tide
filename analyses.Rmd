@@ -1,13 +1,16 @@
 ---
 title: 'Age Specific Mortality Rate Trends '
 output:
+  word_document: default
   html_document:
     df_print: paged
 ---
 
-# Intro
+# Aim 
 
-Countries of interest:
+This document contains a number of analyses presented both in the main paper, "What can lifespan variation reveal that life expectancy hides? Comparison of five high-income countries", as well as supplementary analyses which make use of the same data. 
+
+# Countries of interest
 
 * Japan
 * UK
@@ -15,19 +18,25 @@ Countries of interest:
 * France
 * Canada
 
-Analyses
 
-* e0 for all countries (implied?)
-* Mx for age 0, 40, 80, 90
-    * Correlation between trends and log-trends
-* Mx at all ages 
-    * Correlation as heatmap
-    * Separated into two periods: 
-        * 1975-1990
-        * After 1990 (to last common available year?)
+# Dataset 
+
+Data were extracted from the Human Mortality Database (HMD). 
+
+# Key
+
+The analyses in this markdown document are not performed in the same order as they are presented in the main manuscript. The following key distinguishes analyses presented in the main manuscript from supplementary analyses only available in this document. 
+
+* **M**: Main - indicates that the result of the analysis is included in the main manuscript.
+* **W**: Workings - indicates that the analyses is part of the workings required for other results to be produced
+* **S**: Supplementary - indicates that the analyses are not included in the main manuscript
+
+**Note**: The last section of the analyses involves calculation of the R-squared value of age-specific log Mx trends, and comparisons between Japan and the UK over periods of economic recession. All these analyses are supplementary, and included in case of interest to the reader. 
 
 
-# Prereqs 
+# Prerequisities 
+
+The following R code chunk loads packages used in the analyses, and data extracted and processed from the HMD. 
 
 ```{r}
 pacman::p_load(
@@ -45,7 +54,9 @@ source(here("scripts", "country_definitions.R"))
 ```
 
 
-Write-to-table function 
+## Functions
+
+The following chunk is a convenience function for writing data to a csv file while continuing the execution of a chain of instructions. 
 
 ```{r}
 write_to_table <- function(x, location){
@@ -54,6 +65,8 @@ write_to_table <- function(x, location){
 }
 
 ```
+
+The following function calculates the components of lifespan disparity associated with each individual age x. 
 
 ```{r}
 calc_e_dagger_parts <- function(LT, omega = 100){
@@ -69,7 +82,11 @@ calc_e_dagger_parts <- function(LT, omega = 100){
 
 ```
 
-# e0
+# Analyses 
+
+## e0 - Life expectancy at birth (**W**)
+
+The following code plots life expectancy from birth over time for the five selected countries. This forms the top row of figure 3 in the main manuscript. 
 
 ```{r}
 
@@ -97,7 +114,9 @@ ggsave(here("figures", "00_e0.svg"), height = 15, width = 20, units = "cm", dpi 
 
 ```
 
-Annual change in life expectancy 
+## Annual change in life expectancy (**S**)
+
+The following shows annual variation in e0 in the selected countries. 
 
 ```{r}
 dta_e0 %>% 
@@ -129,17 +148,7 @@ ggsave(here("figures", "01_ch_e0.svg"), height = 20, width = 15, units = "cm", d
 
 ```
 
-# Illustrative figure - Japan
-
-This will be for 'figure 4' in the manuscript
-
-For 1975, and 2017
-
-- lifetable dead per 100,000 by age 
-
-
-Save as svg to make annotation easier 
-
+# Illustrative figure - Japan (**M**: Figure 1b)
 
 
 ```{r}
@@ -221,7 +230,7 @@ e_dagger_parts_jpn %>%
   theme_minimal() +
   scale_linetype_manual("Year", values = c("dotdash", "dashed", "solid")) +
   labs(
-    title = "Lifespan disparity (Infancy/early Childhood)",
+    title = "Life disparity (Infancy/early Childhood)",
     x = "Age in years",
     y = "Contribution to life disparity",
     colour = "Year"
@@ -240,7 +249,7 @@ e_dagger_parts_jpn %>%
   scale_y_continuous(limits = c(0, 0.3)) + 
   scale_linetype_manual("Year", values = c("dotdash", "dashed", "solid")) +
   labs(
-    title = "Lifespan disparity (Adulthood)",
+    title = "Life disparity (Adulthood)",
     x = "Age in years",
     y = NULL,
     colour = "Year"
@@ -258,7 +267,7 @@ Now to combine using patchwork
 ```{r}
 p1 / (p2 + p3) + plot_layout(guide = "collect") +
   plot_annotation(
-    title = 'Changing mortality survivorship curve and lifespan disparity contributions in Japan',
+    title = 'Changing mortality survivorship curve and life disparity contributions in Japan',
     caption = 'Source: Human Mortality Database'
 )
 
@@ -266,20 +275,7 @@ ggsave(here("figures", "figure_04_japan_intro.png"), height = 30, width = 30, un
 ggsave(here("figures", "figure_04_japan_intro.svg"), height = 30, width = 30, units = "cm", dpi = 300)
 
 ```
-
-# equivalent figure ('fig 4') for USA 
-
-As requested 9/2020
-
-This will be for 'figure 4' in the manuscript
-
-For 1975, and 2017
-
-- lifetable dead per 100,000 by age 
-
-
-Save as svg to make annotation easier 
-
+## Illustrative figure for USA (**M**: Figure 1a)
 
 
 ```{r}
@@ -361,7 +357,7 @@ e_dagger_parts_usa %>%
   theme_minimal() +
   scale_linetype_manual("Year", values = c("dotdash", "dashed", "solid")) +
   labs(
-    title = "Lifespan disparity (Infancy/early Childhood)",
+    title = "Life disparity (Infancy/early Childhood)",
     x = "Age in years",
     y = "Contribution to life disparity",
     colour = "Year"
@@ -380,7 +376,7 @@ e_dagger_parts_usa %>%
   scale_y_continuous(limits = c(0, 0.3)) + 
   scale_linetype_manual("Year", values = c("dotdash", "dashed", "solid")) +
   labs(
-    title = "Lifespan disparity (Adulthood)",
+    title = "Life disparity (Adulthood)",
     x = "Age in years",
     y = NULL,
     colour = "Year"
@@ -398,7 +394,7 @@ Now to combine using patchwork
 ```{r}
 p1 / (p2 + p3) + plot_layout(guide = "collect") +
   plot_annotation(
-    title = 'Changing mortality survivorship curve and lifespan disparity contributions in USA',
+    title = 'Changing mortality survivorship curve and life disparity contributions in USA',
     caption = 'Source: Human Mortality Database'
 )
 
@@ -406,7 +402,10 @@ ggsave(here("figures", "figure_04a_usa_intro.png"), height = 30, width = 30, uni
 ggsave(here("figures", "figure_04a_usa_intro.svg"), height = 30, width = 30, units = "cm", dpi = 300)
 
 ```
-Now let's try to produce some faceted versions of these comparing USA with Japan. 
+
+## Faceted comparison (**S**)
+
+This shows the same data presented in Figure 1a and Figure 1b, but in a way that makes direct comparisons between the USA and Japan in a particular period easier.
 
 ```{r}
 e_dagger_parts_usa %>% 
@@ -452,7 +451,7 @@ p1 <- e_dagger_younger_parts %>%
   facet_grid(. ~ factor(year)) + 
   geom_line() + 
   scale_x_continuous(breaks = 0:10) + 
-  labs(x = "Age in years", y = "Contribution to lifespan disparity in years")
+  labs(x = "Age in years", y = "Contribution to life disparity in years")
 p1
 
 p2 <- e_dagger_older_parts %>% 
@@ -460,13 +459,13 @@ p2 <- e_dagger_older_parts %>%
   facet_grid(. ~ factor(year)) + 
   geom_line() + 
   scale_x_continuous() + 
-  labs(x = "Age in years", y = "Contribution to lifespan disparity in years")
+  labs(x = "Age in years", y = "Contribution to life disparity in years")
 
 p2
 
 (p1 / p2) + 
   plot_annotation(
-    title = 'Age-specific contributions to lifespan disparity, USA and Japan',
+    title = 'Age-specific contributions to life disparity, USA and Japan',
     subtitle = "Selected years: 1947, 1975 and 2017",
     caption = 'Source: Human Mortality Database'
 )
@@ -477,9 +476,9 @@ ggsave(here("figures", "figure_x_disp_compare_usa_jpn.png"), height = 20, width 
 
 
 
-# Lifespan disparity 
+## Lifespan disparity (**W**)
 
-To provide the conceptual bridge (the 'motivation') to the correlation plots, we should first calculate life disparity ($e^\dagger$), using the definition given in [Vaupel, Zhang & van Raalte (2011)](https://bmjopen.bmj.com/content/1/1/e000128). This states that : 
+Life disparity ($e^\dagger$), as defined in [Vaupel, Zhang & van Raalte (2011)](https://bmjopen.bmj.com/content/1/1/e000128), states that: 
 
 > Life disparity is defined as the average remaining life expectancy at the ages when death occurs
 
@@ -614,7 +613,9 @@ e_dagger_parts <-
 e_dagger_parts
 ```
 
-Now to visualise e_daggers
+## Visualising e_daggers (**M**)
+
+The following forms the bottom half of figure 2.
 
 ```{r}
 
@@ -634,6 +635,7 @@ ggsave(here("figures", "life_disparity.png"), height = 15, width = 20, units = "
 ggsave(here("figures", "life_disparity.svg"), height = 15, width = 20, units = "cm", dpi = 300)
 
 ```
+## Figure 2 (**M**)
 
 Now to combine life expectancy and life disparity using patchwork 
 
@@ -650,7 +652,7 @@ ggsave(here("figures", "fig_2_4_combined_e0_disparity.png"), width = 30, height 
 
 ```
 
-
+## Figure 3 (**M**)
 
 Now a version focusing on 2000 and beyond 
 
@@ -670,6 +672,7 @@ ggsave(here("figures", "life_disparity_since_2000.png"), height = 15, width = 20
 ggsave(here("figures", "life_disparity_since_2000.svg"), height = 15, width = 20, units = "cm", dpi = 300)
 
 ```
+## Change in e_0 and e_dagger over time (**S**)
 
 Let's look at how $e_0$ and $e^\dagger$ compare over time. 
 
@@ -697,8 +700,7 @@ ggsave(here("figures", "e_dagger_e0_paths.svg"), height = 12, width = 20, units 
 
 ```
 
-What about the contributions of age specific components to life disparity overall? 
-
+## Contributions of age-specific components of life disparity over time, as a heatmap (**S**)
 
 ```{r}
 e_dagger_parts %>%
@@ -719,6 +721,7 @@ ggsave(here("figures", "e_dagger_components_all_ages.png"), height = 25, width =
 ggsave(here("figures", "e_dagger_components_all_ages.svg"), height = 25, width = 30, units = "cm", dpi = 300)
 
 ```
+## Heatmap focused on ages from 15 years old and over (**S**)
 
 As the historic contribution in infancy was so high, let's look at the same but from age 15 onwards. 
 
@@ -749,6 +752,8 @@ An age band of higher disparity contributions is visible from around age 18, for
 
 In the USA the age contributions to disparity are wider/evident at more ages than in the other countries, and have become slightly more spread out. There is a distinct feature for males aged between around 25 and 50 which disappeared rapidly in the mid/late 1990s. A less pronounced varient of this feature is also apparent for males in France. 
 
+## Cumulative sum of e_dagger components up to various different ages (**S**)
+
 Let's now present the above results in a slightly different way, there are a few options. Let's start by doing a cumulative sum plot
 
 ```{r}
@@ -767,7 +772,7 @@ ggsave(here("figures", "e_dagger_cumulative_shares.png"), height = 20, width = 2
 
 ```
 
-## Additional request: life disparity for Japan, 1947 and 2017
+## Additional request: life disparity for Japan, 1947 and 2017 (**W**)
 
 ```{r}
 e_dagger_parts_jpn <- 
@@ -812,7 +817,9 @@ e_dagger_parts_jpn <-
 e_dagger_parts_jpn %>% write_csv("clipboard")
 ```
 
-# Mx at specific ages 
+# Mx at specific ages (**M**: Figure 4 of manuscript)
+
+The following shows Mx for ages 0, 40, 80, and 90 years of age for each of the five countries over time. (This is one of the figures in the main manuscript)
 
 ```{r}
 dta_Mx %>% 
@@ -839,7 +846,9 @@ ggsave(here("figures", "02_Mx_selected.svg"), height = 20, width = 18, units = "
 
 
 ```
-And swapping the groupings/facets 
+## Alternative Mx figure (**S**)
+
+The following shows the same data as above but using a different visualisation type 
 
 ```{r}
 dta_Mx %>% 
@@ -867,7 +876,9 @@ ggsave(here("figures", "02a_Mx_selected.svg"), height = 20, width = 18, units = 
 
 ```
 
-And indexed 
+## Third alternative way of visualising Mx over time (**S**)
+
+The following shows the data a third way, by indexing trends in Mx to their value in 1975. (i.e. the values in 1975 are set to 100). 
 
 ```{r}
 dta_Mx %>% 
@@ -897,7 +908,7 @@ ggsave(here("figures", "02b_Mx_selected.svg"), height = 20, width = 18, units = 
 
 ```
 
-
+## Correlations in log improvement (**W**)
 
 Correlation between log improvement rates by country 
 
@@ -928,6 +939,8 @@ mx_corrs <-
 mx_corrs  
 ```
 
+## Table of correlations in log-mortality rates at specific ages in wide format (**S**)
+
 Rearrange for table 
 
 ```{r}
@@ -951,21 +964,26 @@ corrs_wide <- full_join(corrs_female, corrs_male, by = c("Country", "age"))
 corrs_wide
 ```
 
-Now to display as a nice table 
+## Nicely formatted version of above table of correlations (**S**)
 
 ```{r}
 options(knitr.kable.NA = '')
 
 corrs_wide %>% 
-  kable(col.names = c("Country", "Age", "0", "40", "80", "90", "0", "40", "80", "90")) %>% 
+  kable(col.names = c("Country", "Age", "0", "40", "80", "90", "0", "40", "80", "90"),
+        table.attr = "style = \"color: black;\"") %>% 
   kable_styling(c("bordered")) %>% 
   add_header_above(c(" " = 2, "Female" = 4, "Male" = 4)) %>% 
   collapse_rows(columns = 1)
   
 ```
 
+## Above table of correlations but split by period (**S**)
 
-Now the same but split by period (1975-1990; 1991-last year)
+As there may be differences over time in how correlated these trends are, let's look at the above but for two periods: 
+
+* 1975-1990
+* 1991-latest available year 
 
 
 ```{r}
@@ -1013,20 +1031,21 @@ corrs_wide_1975_1990 <- full_join(corrs_female_1975_1990, corrs_male_1975_1990, 
 corrs_wide_1975_1990
 ```
 
+## Nicely formatted version of table of correlations for period 1 (1975-1990) (**S**)
 
-
-Now to display as a nice table 
 
 ```{r}
 options(knitr.kable.NA = '')
 
 corrs_wide_1975_1990 %>% 
-  kable(col.names = c("Country", "Age", "0", "40", "80", "90", "0", "40", "80", "90")) %>% 
+  kable(col.names = c("Country", "Age", "0", "40", "80", "90", "0", "40", "80", "90"),
+        table.attr = "style = \"color: black;\"") %>% 
   kable_styling(c("bordered")) %>% 
   add_header_above(c(" " = 2, "Female" = 4, "Male" = 4)) %>% 
   collapse_rows(columns = 1)
 
 ```
+## Nicely formatted version of table of correlations for period 2 (1991-latest) (**S**)
 
 
 And for the latter period 
@@ -1085,14 +1104,15 @@ Now to display as a nice table
 options(knitr.kable.NA = '')
 
 corrs_wide_1991_last %>% 
-  kable(col.names = c("Country", "Age", "0", "40", "80", "90", "0", "40", "80", "90")) %>% 
+  kable(col.names = c("Country", "Age", "0", "40", "80", "90", "0", "40", "80", "90"),
+        table.attr = "style = \"color: black;\"") %>% 
   kable_styling(c("bordered")) %>% 
   add_header_above(c(" " = 2, "Female" = 4, "Male" = 4)) %>% 
   collapse_rows(columns = 1)
 
 ```
 
-## New request: Split at 2000-2010; 2011-last year
+## New request: Split at 2000-2010; 2011-last year (**S**)
 
 ```{r}
 mx_corrs_decade_split <- 
@@ -1123,7 +1143,8 @@ mx_corrs_decade_split <-
 
 ```
 
-Is there some way of visualising this? 
+## Correlation with even more recent split as heatmap (**S**)
+
 
 ```{r}
 mx_corrs_decade_split %>% 
@@ -1148,8 +1169,9 @@ Actually we want to R-squared by period
 
 
 
-# Mx for all ages (heatmap)
+## Mx for all ages (heatmap) (**S**)
 
+The above showed the correlation in log trends only for specific ages; the correlations at all ages can be displayed as a heatmap, and may reveal some additional features in the data
 
 
 
@@ -1215,9 +1237,11 @@ ggsave(here("figures", "heatmap_allyears.png"), width = 18, height = 35, units =
 
 ```
 
-
+## Heatmap of correlations in age-specific trends, split into two periods (**S**) 
 
 Now the same for first 1975-1990, then 1991-last year 
+
+### Heatmap for period 1 (1975-1990) (**S**)
 
 ```{r}
 dta_trnd <- dta_Mx %>% 
@@ -1282,6 +1306,7 @@ ggsave(here("figures", "heatmap_1975_1990.png"), width = 18, height = 35, units 
 
 ```
 
+### Heatmap for period 2 (1991-latest) (**S**)
 
 And now 1991 to last available year 
 
@@ -1348,7 +1373,9 @@ ggsave(here("figures", "heatmap_1991_last.png"), width = 18, height = 35, units 
 
 ```
 
-## New Request : 2000-2010 and 2011 onwards
+## New Request : 2000-2010 and 2011 onwards (**S**)
+
+### Heatmap: period 2000-2010 (**S**)
 
 ```{r}
 dta_trnd <- dta_Mx %>% 
@@ -1412,6 +1439,8 @@ ggsave(here("figures", "heatmap_2000_2010.png"), width = 18, height = 35, units 
 
 ```
 
+### Heatmap: correlations from 2011 onwards (**S**)
+
 ```{r}
 dta_trnd <- dta_Mx %>% 
   filter(sex != "total") %>%
@@ -1474,7 +1503,7 @@ ggsave(here("figures", "heatmap_2011_onwards.png"), width = 18, height = 35, uni
 
 ```
 
-# Workbooks 
+# Workbooks (**S**)
 
 It'll be good to be able to save the values from cors_df as a series of excel worksheets in workbooks. Let's look at the contents 
 
@@ -1657,7 +1686,7 @@ saveWorkbook(wb, file = here("tables", "many_blocks.xlsx"), overwrite = TRUE)
 
 ```
 
-# Linearity of trends 
+# Linearity of trends (**W**)
 
 A complementary analysis to that produced above is to investigate how (log)linear the trends have been at different ages. It's expected that trends in infancy will be largely (log)linear, along with those in retirement ages, whereas trends in working age will be least (log)linear, i.e. those age groups with the weakest correlations and strongest negative correlations with those at the majority of ages will also be those with where the (log)linearity of the trends is smallest. 
 
@@ -1691,8 +1720,10 @@ all_rsq
 
 ```
 
+## Loglinearity of trends, three (non-contiguous) periods (**S**)
 
-Now to visualise 
+The following shows the R-squared values of log mortality trends at different ages. Higher values indicate greater log-linearity. 
+
 
 ```{r}
 all_rsq %>% 
@@ -1704,7 +1735,7 @@ all_rsq %>%
       TRUE                                    ~ NA_character_
     ) %>% factor(., levels = c("1975 onwards", "1975-1990", "1991 onwards"), ordered =TRUE)
   ) %>% 
-  write_to_table(here("tables", "linearity_rsq.csv")) %>% 
+#  write_to_table(here("tables", "linearity_rsq.csv")) %>% 
   filter(sex != "total") %>% 
   ggplot(aes(x = age, y = rsq, group = period, linetype = period, colour = period)) + 
   geom_line() + 
@@ -1715,8 +1746,7 @@ all_rsq %>%
     title = "Linearity in log mortality improvement rates"
   ) + 
   theme_minimal() +
-  scale_colour_manual(values = c("black", "darkred", "darkblue")) +
-  scale_linetype_manual(values = c("dashed", "dotdash", "solid"))
+  scale_colour_manual(values = c("black", "darkred", "darkblue"))
 
 ggsave(here("figures", "log_linearity_by_age.png"), height = 20, width = 20, units = "cm", dpi = 300)
 ggsave(here("figures", "log_linearity_by_age.svg"), height = 20, width = 20, units = "cm", dpi = 300)
